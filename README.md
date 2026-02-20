@@ -129,10 +129,75 @@ archived/                    # Legacy Postman collection (reference only)
 environment.py               # Behave hooks (before_all)
 ```
 
+## Tag Convention
+
+Tests use a dot-separated hierarchical tagging scheme (see [ADR-001](docs/adr/001-behave-tag-naming-convention.md) for full rationale).
+
+### Dimensions
+
+| Prefix | Dimension | Example |
+|--------|-----------|---------|
+| `@req.` | SRS requirement | `@req.CAT-FR-CO-01` |
+| `@gate.` | FACIS I&A acceptance gate | `@gate.GD1`, `@gate.CO1` |
+| `@domain.` | API area under test | `@domain.sd`, `@domain.verify` |
+| `@cfg.` | Required deployment config | `@cfg.neo4j`, `@cfg.gaiax` |
+| _(bare)_ | Test purpose | `@smoke`, `@baseline`, `@regression` |
+| _(bare)_ | Dev utility | `@wip`, `@skip`, `@this` |
+
+### Running subsets
+
+```bash
+# Smoke tests (default config)
+behave --tags="@smoke"
+
+# All baseline (pre-FACIS) behaviour
+behave --tags="@baseline"
+
+# Everything for a specific acceptance gate
+behave --tags="@gate.CO1"
+
+# Only tests that apply to Fuseki backend
+behave --tags="@cfg.fuseki"
+
+# Smoke tests excluding Fuseki-specific and Gaia-X-specific scenarios
+behave --tags="@smoke and not @cfg.fuseki and not @cfg.gaiax"
+```
+
+### Acceptance Gates
+
+| Tag | Gate | SRS Requirements |
+|-----|------|-----------------|
+| `@gate.AM1` | Asset Management | CAT-FR-AM-01, -02, -03 |
+| `@gate.GD1` | Claim Extraction | CAT-FR-GD-01, -02, -09 |
+| `@gate.GD2` | Switchable Graph Backends | CAT-FR-GD-03 thru -08 |
+| `@gate.AC1` | Access Control | CAT-FR-AC-01, -02 |
+| `@gate.LS1` | Lifecycle and Storage | CAT-FR-LM-01 thru -04, CAT-FR-SF-01 thru -04 |
+| `@gate.CO1` | Compliance and Validation | CAT-FR-CO-01 thru -05 |
+| `@gate.AU1` | Administration UI | CAT-FR-AU-01 |
+
+### Config variants
+
+The Federated Catalogue is deployed with different configurations (graph backends,
+validation policies, trust frameworks). `@cfg.*` tags mark which configuration a
+scenario requires, so CI can run exactly the right subset per deployment variant.
+
+| Tag | Config property | Value |
+|-----|----------------|-------|
+| `@cfg.neo4j` | `graphstore.impl` | `neo4j` |
+| `@cfg.fuseki` | `graphstore.impl` | `fuseki` |
+| `@cfg.forced-schema-val` | `verification.schema` | `true` |
+| `@cfg.no-schema-val` | `verification.schema` | `false` |
+| `@cfg.gaiax` | `trust-framework.gaiax.enabled` | `true` |
+| `@cfg.no-gaiax` | `trust-framework.gaiax.enabled` | `false` |
+| `@cfg.real-sig` | Signature verification | enabled (real DIDs) |
+| `@cfg.test-sig` | Signature verification | skipped (test fixtures) |
+
+Scenarios without `@cfg.*` tags are config-agnostic and run in every variant.
+
 ## Known Issues
 
-- **GET /session** and **GET /participants** return 500 on a fresh docker-compose stack. Root cause under investigation.
-- **POST /verification** rejects all VPs with "no proper CredentialSubject found" until the Gaia-X ontology is loaded into the FC SchemaStore. Fresh docker-compose stacks have an empty SchemaStore.
+- **`FC_CLIENT_SECRET` in `dev.env`** — The default `dev.env` ships with `FC_CLIENT_SECRET=**********` (placeholder). This must be replaced with the actual Keycloak client secret, otherwise `GET /session`, `GET /participants`, and all user endpoints return 500 (the FC server fails to authenticate to Keycloak admin API).
+- **Fixture `@type` namespace** — Valid test fixtures must use `https://w3id.org/gaia-x/core#Participant` (not the legacy `http://w3id.org/gaia-x/participant#Participant`) to match the auto-loaded ontology. See `fixtures/valid/gaiax-participant-correct-type.vp.jsonld`.
 - The upstream bdd-executor `KeycloakServer.fetch_token()` hardcodes `client_credentials` grant. This is overridden locally via `CatKeycloakServer`. A PR to make grant type configurable is planned.
 
 ## Background

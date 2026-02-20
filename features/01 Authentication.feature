@@ -1,16 +1,20 @@
+@domain.auth @baseline
 Feature: Authentication
   As a Federated Catalogue API consumer
   I need to authenticate via Keycloak
   So that I can access protected endpoints
 
+  @smoke
   Scenario: Keycloak is reachable
     Given CAT Keycloak is up
 
+  @smoke
   Scenario: Obtain access token
     Given CAT Keycloak is up
     When fetch Keycloak token
     Then save Keycloak token
 
+  @smoke @domain.session
   Scenario: Access session with valid token
     Given CAT Keycloak is up
       And saved Keycloak token

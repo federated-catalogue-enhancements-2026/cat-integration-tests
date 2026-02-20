@@ -60,6 +60,15 @@ def verify_self_description_from_fixture(context: ContextType, fixture_path: str
     context.requests_response = context.fc_server.verify(payload)
 
 
+@when('verify self-description from fixture "{fixture_path}" skipping signatures')
+def verify_sd_from_fixture_skip_sigs(context: ContextType, fixture_path: str) -> None:
+    payload = (FIXTURES_DIR / fixture_path).read_text()
+    context.requests_response = context.fc_server.verify(payload, params={
+        "verifyVPSignature": "false",
+        "verifyVCSignature": "false",
+    })
+
+
 # -- Query --
 
 @when('execute query "{statement}"')

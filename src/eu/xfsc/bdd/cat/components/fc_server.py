@@ -79,12 +79,13 @@ class Server(BaseServiceKeycloak):
 
     # -- Verification --
 
-    def verify(self, payload: str) -> requests.Response:
+    def verify(self, payload: str, params: Optional[dict[str, Any]] = None) -> requests.Response:
         """POST /verification"""
         self._update_header(content_type="application/json")
         return self.http.post(
             url=f"{self.host}verification",
             data=payload,
+            params=params,
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 

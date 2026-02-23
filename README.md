@@ -31,7 +31,7 @@ source env.sh
 # Run all BDD features
 make run_cat_bdd_dev
 
-# Run with HTML report
+# Run with HTML report, you will find the report in .tmp/behave/behave-report.html
 make run_cat_bdd_dev_html
 
 # Run code quality checks
@@ -82,16 +82,22 @@ If required actions remain, the password grant will fail with: `invalid_grant: A
 
 For running all tests, assign **Ro-MU-CA** (includes all permissions).
 
-### 5. Verify
+### 5. Add the client secret to `dev.env`
+1. Go to **Clients** > **federated-catalogue** > **Credentials** tab
+2. Copy the **Secret** value
+3. Paste it into `dev.env` as the value for `FC_CLIENT_SECRET`
+
+### 6. Verify
 
 ```bash
-# Quick check that the token grant works:
-curl -s -X POST http://key-server:8080/realms/gaia-x/protocol/openid-connect/token \
+# Quick check that the token grant works (make sure env.sh is sourced first):
+curl -s -X POST "${CAT_KEYCLOAK_URL}/realms/${CAT_KEYCLOAK_REALM}/protocol/openid-connect/token" \
   -d "grant_type=password" \
-  -d "client_id=federated-catalogue" \
-  -d "username=admin" \
-  -d "password=admin" \
-  -d "scope=openid" | python3 -m json.tool | head -5
+  -d "client_id=${CAT_KEYCLOAK_CLIENT_ID}" \
+  -d "client_secret=${CAT_KEYCLOAK_CLIENT_SECRET}" \
+  -d "username=${CAT_TEST_USER}" \
+  -d "password=${CAT_TEST_PASSWORD}" \
+  -d "scope=${CAT_KEYCLOAK_SCOPE}" | python3 -m json.tool | head -5
 ```
 
 You should see `"access_token": "eyJ..."` in the response.

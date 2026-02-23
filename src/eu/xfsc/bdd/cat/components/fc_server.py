@@ -6,9 +6,9 @@ from typing import Any, Optional
 import pydantic
 import requests
 
+from eu.xfsc.bdd.cat.env import FC_HOST
 from eu.xfsc.bdd.core.defaults import CONNECT_TIMEOUT_IN_SECONDS
 from eu.xfsc.bdd.core.server.keycloak import BaseServiceKeycloak
-from eu.xfsc.bdd.cat.env import FC_HOST
 
 
 class Server(BaseServiceKeycloak):

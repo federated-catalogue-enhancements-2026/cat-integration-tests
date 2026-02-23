@@ -12,7 +12,7 @@ import requests
 from eu.xfsc.bdd.core.defaults import CONNECT_TIMEOUT_IN_SECONDS
 from eu.xfsc.bdd.core.server.keycloak import KeycloakServer
 
-from ..env import TEST_USER, TEST_PASSWORD
+from ..env import TEST_PASSWORD, TEST_USER
 
 
 class CatKeycloakServer(KeycloakServer):

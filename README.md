@@ -15,27 +15,13 @@ BDD acceptance tests for the Eclipse XFSC Federated Catalogue, using the [bdd-ex
 # Configure environment 
 cp env.sample.sh env.sh # done once initially
 
-# Edit env.sh — set CAT_ENV to your target (docker-compose / minikube / qa)
-#             — set EU_XFSC_BDD_CORE_PATH if not using default location
+# Edit env.sh - set CAT_ENV to your target (docker-compose / minikube / qa)
+#             -  set EU_XFSC_BDD_CORE_PATH if not using default location
+#             -  set Keycloak credentials as described in Keycloak Setup below
 source env.sh # done for each new terminal session to load proper env vars
 
 # Install dependencies and set up virtual environment
 make setup_dev
-```
-
-## Running Tests
-
-```bash
-source env.sh
-
-# Run all BDD features
-make run_cat_bdd_dev
-
-# Run with HTML report, you will find the report in .tmp/behave/behave-report.html
-make run_cat_bdd_dev_html
-
-# Run code quality checks
-make code_check
 ```
 
 ## Keycloak Setup
@@ -102,15 +88,20 @@ curl -s -X POST "${CAT_KEYCLOAK_URL}/realms/${CAT_KEYCLOAK_REALM}/protocol/openi
 
 You should see `"access_token": "eyJ..."` in the response.
 
-## Environment Configuration
+## Running Tests
 
-The `env.sh` file uses a `CAT_ENV` switch to target different deployments:
+```bash
+source env.sh
 
-| Target | `CAT_ENV` | FC Host | Keycloak |
-|--------|-----------|---------|----------|
-| Docker Compose (local) | `docker-compose` | `http://localhost:8081` | `http://key-server:8080` |
-| Minikube / k8s | `minikube` | `http://localhost:30081` | `http://localhost:30080` |
-| QA / Staging | `qa` | configurable | configurable |
+# Run all BDD features
+make run_cat_bdd_dev
+
+# Run with HTML report, you will find the report in .tmp/behave/behave-report.html
+make run_cat_bdd_dev_html
+
+# Run code quality checks
+make code_check
+```
 
 ## Project Structure
 

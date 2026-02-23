@@ -12,16 +12,15 @@ BDD acceptance tests for the Eclipse XFSC Federated Catalogue, using the [bdd-ex
 ## Setup
 
 ```bash
-# Configure environment
-cp env.sample.sh env.sh
-# Edit env.sh — set CAT_ENV to your target (docker-compose / minikube / qa)
-source env.sh
+# Configure environment 
+cp env.sample.sh env.sh # done once initially
 
-# Install dependencies
-# NOTE: EU_XFSC_BDD_CORE_PATH must point to the bdd-executor repo root.
-# Default (../../) assumes cat-integration-tests lives inside bdd-executor/implementations/.
-# When running from somewhere else, override this value (this example assumes that bdd-executor is a sibling dir):
-EU_XFSC_BDD_CORE_PATH=../bdd-executor make setup_dev
+# Edit env.sh — set CAT_ENV to your target (docker-compose / minikube / qa)
+#             — set EU_XFSC_BDD_CORE_PATH if not using default location
+source env.sh # done for each new terminal session to load proper env vars
+
+# Install dependencies and set up virtual environment
+make setup_dev
 ```
 
 ## Running Tests

@@ -9,6 +9,8 @@ SOURCE_PATHS := "src"
 VENV_PATH_DEV := $(PYTHON_D)/dev/eclipse/xfsc/dev-ops/testing/bdd-executor/cat
 VENV_PATH_PROD := $(PYTHON_D)/prod/eclipse/xfsc/dev-ops/testing/bdd-executor/cat
 
+# Path to bdd-executor repository root (set via env.sh or override here)
+# Default: ../.. (assumes cat-integration-tests is in bdd-executor/implementations/)
 EU_XFSC_BDD_CORE_PATH ?= ../..
 
 setup_dev: $(VENV_PATH_DEV)

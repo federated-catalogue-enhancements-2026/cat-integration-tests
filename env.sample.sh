@@ -17,6 +17,20 @@ Targets:
 "
 
 # --------------------------------------------------------------------------
+# :: bdd-executor framework path
+# --------------------------------------------------------------------------
+# Path to the bdd-executor repository root.
+# This is used by the Makefile to install the eu-xfsc-bdd dependency.
+#
+# Common scenarios:
+#   As submodule:        ../../bdd-executor (cat-integration-tests in bdd-executor/implementations/)
+#   As sibling repo:     ../bdd-executor (both repos cloned side by side)
+#   Custom location:     /path/to/bdd-executor (any absolute path)
+#
+# Default if not set: ../.. (assumes submodule structure)
+export EU_XFSC_BDD_CORE_PATH="${EU_XFSC_BDD_CORE_PATH:-../..}"
+
+# --------------------------------------------------------------------------
 # :: Target environment selector
 # --------------------------------------------------------------------------
 #export CAT_ENV="docker-compose"  # docker-compose | minikube | qa

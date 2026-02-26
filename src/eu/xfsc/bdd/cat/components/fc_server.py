@@ -40,7 +40,7 @@ class Server(BaseServiceKeycloak):
         self._update_header(content_type="application/json")
         return self.http.post(
             url=f"{self.host}self-descriptions",
-            data=payload,
+            data=payload.encode("utf-8"),
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 
@@ -84,7 +84,7 @@ class Server(BaseServiceKeycloak):
         self._update_header(content_type="application/json")
         return self.http.post(
             url=f"{self.host}verification",
-            data=payload,
+            data=payload.encode("utf-8"),
             params=params,
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
@@ -119,7 +119,7 @@ class Server(BaseServiceKeycloak):
         self._update_header(content_type="application/json")
         return self.http.post(
             url=f"{self.host}schemas",
-            data=payload,
+            data=payload.encode("utf-8"),
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 

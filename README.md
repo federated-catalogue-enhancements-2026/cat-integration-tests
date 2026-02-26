@@ -190,6 +190,50 @@ scenario requires, so CI can run exactly the right subset per deployment variant
 
 Scenarios without `@cfg.*` tags are config-agnostic and run in every variant.
 
+## Signed Test Fixtures
+
+The FC server verifies LD-Signatures on uploaded Self-Descriptions by resolving the DID in the proof's `verificationMethod` field and checking the cryptographic signature against the public key.
+
+Test fixtures use **`did:jwk`** — a DID method that embeds the public key directly in the DID URI. This means signature verification works on any machine without depending on external DID resolution services.
+
+### Pre-signed fixtures (committed to repo)
+
+Signed fixtures in `fixtures/valid/` are committed to git and work everywhere out of the box. **You do not need to re-sign them for normal test runs.**
+
+### When to re-sign
+
+Re-sign only when you **change the content** of an unsigned fixture template in `fixtures/unsigned/` (e.g. different `credentialSubject` fields, new `@type`). Changing the JSON-LD content invalidates the existing signature.
+
+### How to sign
+
+```bash
+# Prerequisites: Java 21+, fc-tools-signer fat jar + its RSA key
+# Build the signer from federated-catalogue source (one-time):
+#   cd <federated-catalogue>/fc-tools/signer && mvn package -DskipTests
+
+FC_SIGNER_JAR=/path/to/fc-tools-signer-2.1.0-SNAPSHOT-full.jar \
+FC_SIGNER_KEY=/path/to/rsa2048.sign.pem \
+  make sign-fixtures
+```
+
+This signs every `*.jsonld` in `fixtures/unsigned/` and places the output in `fixtures/valid/` with a `.signed.jsonld` suffix. For example `fixtures/unsigned/gaiax-participant-legacy-type.vp.jsonld` becomes `fixtures/valid/gaiax-participant.vp.signed.jsonld`.
+
+### File layout
+
+```
+fixtures/
+  unsigned/                                # Source templates (no proof objects)
+    gaiax-participant-legacy-type.vp.jsonld            #   Participant VP for signing
+    <any-other>.jsonld                     #   Add more unsigned fixtures here
+  valid/                                   # Signed fixtures (committed, used by tests)
+    gaiax-participant.vp.signed.jsonld     #   ← output of make sign-fixtures
+  invalid/                                 # Deliberately broken payloads
+```
+
+### Key material
+
+The signing key (`rsa2048.sign.pem`) and signer tool live in the `fc-tools/signer` module of the [federated-catalogue](https://gitlab.eclipse.org/eclipse/xfsc/cat/fc-service) repo. The corresponding public key is encoded in the `did:jwk:` URI used as `verificationMethod` in the proof — since `did:jwk` is self-describing, no external key server or DID registry is needed.
+
 ## Known Issues
 
 - **`FC_CLIENT_SECRET` in `dev.env`** — The default `dev.env` ships with `FC_CLIENT_SECRET=**********` (placeholder). This must be replaced with the actual Keycloak client secret, otherwise `GET /session`, `GET /participants`, and all user endpoints return 500 (the FC server fails to authenticate to Keycloak admin API).

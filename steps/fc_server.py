@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 import requests
@@ -25,6 +26,15 @@ def check_fc_server_up(context: ContextType) -> None:
 
 # -- Self-Descriptions --
 
+@given('self-description from fixture "{fixture_path}" is not uploaded')
+def ensure_sd_not_uploaded(context: ContextType, fixture_path: str) -> None:
+    payload = (FIXTURES_DIR / fixture_path).read_text()
+    sd_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    resp = context.fc_server.delete_self_description(sd_hash)
+    assert resp.status_code in (200, 404), \
+        f"Unexpected cleanup response: {resp.status_code}, {resp.content}"
+
+
 @when("request list of self-descriptions")
 def request_list_self_descriptions(context: ContextType) -> None:
     context.requests_response = context.fc_server.get_self_descriptions()
@@ -34,6 +44,12 @@ def request_list_self_descriptions(context: ContextType) -> None:
 def add_self_description(context: ContextType) -> None:
     assert context.text, "Step requires docstring with SD payload"
     context.requests_response = context.fc_server.add_self_description(context.text)
+
+
+@when('add self-description from fixture "{fixture_path}"')
+def add_self_description_from_fixture(context: ContextType, fixture_path: str) -> None:
+    payload = (FIXTURES_DIR / fixture_path).read_text()
+    context.requests_response = context.fc_server.add_self_description(payload)
 
 
 @when('delete self-description "{sd_hash}"')

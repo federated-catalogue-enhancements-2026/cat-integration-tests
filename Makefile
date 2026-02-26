@@ -2,6 +2,17 @@
 
 SHELL := /bin/bash -eu -o pipefail
 
+# ---------------------------------------------------------------------------
+# Required environment variables for BDD test targets (run_cat_bdd_*).
+# Source env.sh before running:  source env.sh
+# ---------------------------------------------------------------------------
+REQUIRED_BDD_VARS := CAT_FC_HOST CAT_KEYCLOAK_URL CAT_KEYCLOAK_REALM CAT_TEST_USER CAT_TEST_PASSWORD
+
+define check_bdd_env
+$(foreach var,$(REQUIRED_BDD_VARS),\
+  $(if $($(var)),,$(error $(var) is not set. On local dev stage: run `source env.sh` (see env.sample.sh) or set these manually in your environment.)))
+endef
+
 PYTHON_3 ?= python3
 PYTHON_D ?= $(HOME)/.python.d
 SOURCE_PATHS := "src"
@@ -55,15 +66,18 @@ code_check: \
 	mypy
 
 run_cat_bdd_dev: setup_dev
+	$(call check_bdd_env)
 	source "$(VENV_PATH_DEV)/bin/activate" && \
 		"$(VENV_PATH_DEV)/bin/coverage" run --append -m behave $${ARG_BDD_JUNIT:-}
 
 run_cat_bdd_dev_html: setup_dev
+	$(call check_bdd_env)
 	mkdir -p .tmp/behave
 	source "$(VENV_PATH_DEV)/bin/activate" && \
 		"$(VENV_PATH_DEV)/bin/coverage" run --append -m behave -f html -o .tmp/behave/behave-report.html
 
 run_cat_bdd_prod: setup_prod
+	$(call check_bdd_env)
 	source "$(VENV_PATH_PROD)/bin/activate" && behave features/
 
 run_all_test_coverage: coverage_run run_cat_bdd_dev coverage_report
@@ -83,3 +97,46 @@ activate_env_dev: setup_dev
 licensecheck: setup_dev
 	"$(VENV_PATH_DEV)/bin/pip" freeze > ".tmp/requirements.txt"
 	cd .tmp/ && "$(VENV_PATH_DEV)/bin/licensecheck" -u requirements > THIRD-PARTY.txt
+
+# --- Fixture Signing (dev-only, rare) ---
+# Signs every *.jsonld in fixtures/unsigned/ → fixtures/valid/<name>.signed.jsonld
+# Signed fixtures are committed — re-sign only when unsigned content changes.
+# Requires: Java 21+, FC_SIGNER_JAR and FC_SIGNER_KEY env vars.
+# Build the signer:
+#   cd <federated-catalogue> && mvn package -pl fc-tools/signer -am -DskipTests
+#   # Produces: fc-tools/signer/target/fc-tools-signer-2.1.0-SNAPSHOT-full.jar
+#
+# Usage:
+#   FC_SIGNER_JAR=/path/to/fc-tools-signer-2.1.0-SNAPSHOT-full.jar \
+#   FC_SIGNER_KEY=/path/to/rsa2048.sign.pem \
+#     make sign-fixtures
+
+UNSIGNED_DIR := fixtures/unsigned
+SIGNED_DIR := fixtures/valid
+
+# did:web DID referencing the local did-server trust environment.
+# LocalSignatureVerifier (the only working verifier on 2.0.0) only supports did:web.
+FC_SIGNER_DID := did:web:did-server\#0
+
+sign-fixtures:
+ifndef FC_SIGNER_JAR
+	$(error FC_SIGNER_JAR is not set. Point it to the fc-tools-signer fat jar.)
+endif
+ifndef FC_SIGNER_KEY
+	$(error FC_SIGNER_KEY is not set. Point it to rsa2048.sign.pem from fc-tools/signer.)
+endif
+	@unsigned=$$(find $(UNSIGNED_DIR) -name '*.jsonld' 2>/dev/null); \
+	if [ -z "$$unsigned" ]; then \
+		echo "No .jsonld files found in $(UNSIGNED_DIR)/"; exit 1; \
+	fi; \
+	for src in $$unsigned; do \
+		base=$$(basename "$$src" .jsonld); \
+		dest="$(SIGNED_DIR)/$${base}.signed.jsonld"; \
+		echo "Signing $$src → $$dest"; \
+		java -jar "$(FC_SIGNER_JAR)" \
+			sd="$$(pwd)/$$src" \
+			ssd="$$(pwd)/$$dest" \
+			prk="$(FC_SIGNER_KEY)" \
+			m="$(FC_SIGNER_DID)" || exit 1; \
+	done; \
+	echo "Done. Signed $$(echo "$$unsigned" | wc -w | tr -d ' ') fixture(s) into $(SIGNED_DIR)/"

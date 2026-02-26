@@ -1,0 +1,53 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1"
+  ],
+  "type": ["VerifiablePresentation"],
+  "holder": "did:example:holder",
+  "verifiableCredential": [
+    {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1"
+      ],
+      "@id": "https://delta-dao.com/.well-known/participant.json",
+      "issuer": "did:web:compliance.lab.gaia-x.eu:v1",
+      "issuanceDate": "2024-01-01T19:37:24Z",
+      "type": ["VerifiableCredential"],
+      "credentialSubject": {
+        "@context": {
+          "gax-participant": "http://w3id.org/gaia-x/participant#",
+          "xsd": "http://www.w3.org/2001/XMLSchema#"
+        },
+        "id": "http://example.org/test-issuer",
+        "@type": "https://w3id.org/gaia-x/core#Participant",
+        "gax-participant:name": {
+          "@value": "deltaDAO AG",
+          "@type": "xsd:string"
+        },
+        "gax-participant:legalName": {
+          "@value": "deltaDAO AG",
+          "@type": "xsd:string"
+        },
+        "gax-participant:legalAddress": {
+          "@type": "gax-participant:Address",
+          "gax-participant:country": {
+            "@value": "DE",
+            "@type": "xsd:string"
+          },
+          "gax-participant:street-address": {
+            "@value": "Geibelstraße 46b",
+            "@type": "xsd:string"
+          },
+          "gax-participant:postal-code": {
+            "@value": "22303",
+            "@type": "xsd:string"
+          },
+          "gax-participant:locality": {
+            "@value": "Hamburg",
+            "@type": "xsd:string"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -135,6 +135,8 @@ Feature: Self-Description Verification
 
   @smoke @cfg.test-sig
   Scenario: Verify SD with unrecognised type returns semantic error
+    When verify self-description from fixture "valid/gaiax-participant-legacy-type.vp.jsonld"
+    Then get http 422:Unprocessable Entity code
 
   @smoke @req.CAT-FR-CO-01 @cfg.default @cfg.test-sig
   Scenario: Verify SD with correct ontology type passes semantic check

@@ -8,8 +8,8 @@ Feature: Original Implementation Regression
   #   schema=true, semantics=true, vp-signature=true, vc-signature=true
   #   Gaia-X trust framework always enabled (no toggle in 2.0.0)
   #
-  # Requires: did-server (DID document + cert chain + mock trust anchor registry),
-  #   local signature verifier, custom JVM truststore.
+  # Signature fixtures use did:jwk (resolved via Universal Resolver).
+  # Requires: uni-resolver-client >= 0.51.0 (patched from broken 0.35.0).
   # See: fixture-signing.md in bdd-automation-knowledge/
 
   Background:
@@ -46,10 +46,10 @@ Feature: Original Implementation Regression
 
   # --- Signature verification (server default: signatures=true) ---
 
-  @smoke @cfg.did-server
+  @smoke @cfg.test-sig
   Scenario: Verification with valid signatures passes on original server
-    # Fixture signed with JsonWebSignature2020 + did:web:did-server.
-    # Signatures + trust anchor chain verified via local DID resolver + mock registry.
+    # Fixture signed with JsonWebSignature2020 + did:jwk.
+    # DID resolved via Universal Resolver (no local did-server needed).
     When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld"
     Then get http 200:Success code
 
@@ -61,7 +61,7 @@ Feature: Original Implementation Regression
     When add self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld"
     Then get http 422:Unprocessable Entity code
 
-  @smoke @cfg.gaiax @cfg.did-server
+  @smoke @cfg.gaiax @cfg.test-sig
   Scenario: Upload with valid signatures succeeds on original server
     # Full end-to-end: signature verification + trust anchor + schema + semantics → 201.
     # Cleanup any leftover from previous runs to avoid 409 Conflict.

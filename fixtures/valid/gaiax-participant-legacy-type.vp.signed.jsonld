@@ -21,7 +21,7 @@
     "issuanceDate" : "2020-03-10T04:24:12.164Z",
     "credentialSubject" : {
       "id" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-      "@type" : [ "https://w3id.org/gaia-x/core#Participant" ],
+      "@type" : [ "http://w3id.org/gaia-x/participant#Participant" ],
       "degree" : {
         "type" : "BachelorDegree",
         "name" : "Bachelor of Science and Arts"
@@ -29,17 +29,17 @@
     },
     "proof" : {
       "type" : "JsonWebSignature2020",
-      "created" : "2026-03-02T13:17:25Z",
+      "created" : "2026-03-02T13:17:27Z",
       "verificationMethod" : "did:web:did-server#0",
       "proofPurpose" : "assertionMethod",
-      "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..wWrtGzThrn0bOCBNvM6WvW6XzXcIHJ5JMNJdPwFLj7w0G3r6SSt-o01lEJcgbzlF_vy4dP7fs4NCd-ufDpZkeKYyGbiJ0P_63lzXIVNzP95dcyvoVUONhZhOXAxRSp1gIC0XOjELr4m7O3FlEzM1bUL4YnsjkBnbWfTECORyxK2xu8xhGIhMhyeN7G1_w--Bm_YxmzvuJOTnI8KomIpAj7fkdVuvolcqLQ1LwFH7PBtJKH8CTutCGA6AzwKfgPOvYgyNhMmHrQ7zUEnGLRr6sLRSJa07OapMiojTDxKx_OQFkAdTs6NWrau15_W3_ORV35JZRkJ_yGaCwTI0875Jeg"
+      "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..16dn_YJ14FpIz1sJTxcnZ0Z8bHd-yKypp1Tl0W9gM4Oey_taXKu7xLGOZFXj2jxv_t_lDkWfGVshNPwdhAK_MMHPKk4A4S85nzuTKaZXI3FjEmTDG0zInMYicEVlWRXQyIbuOn8hJKmyuiizx4_WWgYcsq0QJf7CE0aXNivoU7Xr3FhFGGd9QO7ntjocwheLvghDvDGeWSFnP_PVghMKdYeBboX1ELK9c6TFO6IJJALJ9FifIo4SZbnbUja_9uAY60zZWKHGwLNb6MTEfUPPK1hs0eCVVozUkYzO9G2lkkFxzMxZ768Dn8ovbzB1IF7fp8UngbKQRZUvZF2hi5Kxiw"
     }
   } ],
   "proof" : {
     "type" : "JsonWebSignature2020",
-    "created" : "2026-03-02T13:17:26Z",
+    "created" : "2026-03-02T13:17:28Z",
     "verificationMethod" : "did:web:did-server#0",
     "proofPurpose" : "assertionMethod",
-    "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..xIkDR7ist0qH15v1OMNBlxvE-JX7_N9SP0lHj1dok73mSl0sbvTwu0AKSDASOL35bMqDcDqs0zqT7B_uTvglT1mVXdx4wHjmvgug6uQozETdpoNXfs9JM_bcTF-i99Vh50AAvgvAvZ7Y_DEA9u1GXgbLE9bycHoj8O6AodADJg_wDkMVvmyTEn3bfpnSVh8C1vkxyqyK8oiCJhpxF37fTxeMIW4DW0DkyMWPFZVwwNOmLgP4AveQ2m3UCpXtD7W2Vf7-AMk2i7vMqVDMu1tkZERE4kgdLRAxOdwnHYyKdcuJ7rU1My-672I--FOA4C4mrRimOEAY7Jrv60fev-zYPw"
+    "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..fdeOVuC9F2HLqNXOwLM2eLNyL8QLi5zf9VdyHYpGkxAl_i4_WC0Le6Hs2pRuiBcjgmrvNdllsjS5hQ2xM1vwkDMELYf80GFq2jrYYmX51VPMMXSFuvVTWTnU65VB6Vah-hDcK-BdpHLyuqoeyLf3byi2yqk9NVsaFlFppCVYUKxvrwVXdAEoOUgc-CGA4GwSf_MGqSaLMeWgx6k7dtK2vbt9OZhaMHApZa5To3FuN-dyDSYhpxWhRDfQdYVbX_1io_6p6fIL2H-NkS5pqHn-A1xIAPuwOkpjfUDYuaDfK3KMQX2NUx3l8LxEuYBmuGbm1mXMDx9hw0ilP-_9P-WBzw"
   }
 }

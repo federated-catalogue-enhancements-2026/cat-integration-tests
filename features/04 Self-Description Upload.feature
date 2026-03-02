@@ -1,0 +1,50 @@
+@domain.sd @extended
+Feature: Self-Description Upload
+  As a Federated Catalogue API consumer
+  I want to upload Self-Descriptions without mandatory Gaia-X compliance
+  So that the catalogue accepts credentials from any ecosystem
+
+  # Default server config: gaiax.enabled=false, schema=false, semantics=true, signatures=true
+
+  Background:
+    Given CAT Keycloak is up
+      And saved Keycloak token
+      And Federated Catalogue Server is up
+
+  @smoke @req.CAT-FR-CO-01 @cfg.default
+  Scenario: Verification accepts credential without Gaia-X compliance
+    # Credential has correct ontology @type but no Gaia-X compliance credential.
+    # With gaiax.enabled=false (default), compliance check is skipped.
+    When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
+    Then get http 200:Success code
+
+  @smoke @req.CAT-FR-CO-01
+  Scenario: Invalid credential still rejected without compliance checks
+    # Structural validation remains active regardless of Gaia-X config.
+    When verify self-description
+      """
+      { "invalid": "payload" }
+      """
+    Then get http 422:Unprocessable Entity code
+
+  @req.CAT-FR-CO-01
+  Scenario: Existing Gaia-X credential still passes verification
+    # Backward compatibility: Gaia-X-typed credentials are not broken by
+    # removal of mandatory compliance — they still verify successfully.
+    When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
+    Then get http 200:Success code
+
+  # --- Strict config: upload with full validation (regression) ---
+
+  @regression @cfg.strict
+  Scenario: Upload rejects credential with unresolvable signatures
+    # Unsigned fixture has Ed25519 test proofs — server cannot resolve the DIDs.
+    When add self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld"
+    Then get http 422:Unprocessable Entity code
+
+  @regression @cfg.strict @cfg.test-sig
+  Scenario: Upload with valid signatures succeeds under strict config
+    # Full end-to-end: signature verification + trust anchor + schema + semantics → 201.
+    Given self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld" is not uploaded
+    When add self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld"
+    Then get http 201:Created code

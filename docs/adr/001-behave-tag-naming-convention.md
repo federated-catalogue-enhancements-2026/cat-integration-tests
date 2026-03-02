@@ -35,10 +35,9 @@ uses a unique prefix to guarantee disambiguation.
 | Prefix | Dimension | Cardinality | Applied to | Purpose |
 |--------|-----------|-------------|------------|---------|
 | `@req.` | Requirement ID | 1:N per scenario | Scenarios | Traceability to SRS requirement |
-| `@gate.` | Acceptance gate | 1:N per feature/scenario | Features or scenarios | Groups requirements per FACIS I&A gates |
 | `@domain.` | API domain | 1 per feature | Features | Which API area is under test |
-| `@cfg.` | Config variant | 0:N per scenario | Scenarios | Which deployment config is required |
-| _(bare)_ | Test purpose | 1 per feature/scenario | Either | `@smoke`, `@baseline`, `@regression` |
+| `@cfg.` | Config variant | 0:N per scenario | Scenarios | **Where** — which deployment config the scenario runs against |
+| _(bare)_ | Test purpose | 1 per feature/scenario | Either | **Why** — why the test exists (`@smoke`, `@baseline`, `@regression`, `@extended`) |
 | _(bare)_ | Dev utility | 0:1 | Scenarios | `@wip`, `@skip`, `@this` |
 
 ### Requirement Tags (`@req.`)
@@ -51,23 +50,6 @@ Format: `@req.CAT-FR-{category}-{number}`
 
 Every scenario that validates a specific SRS requirement MUST carry the corresponding
 `@req.` tag. A scenario may carry multiple `@req.` tags if it covers several requirements.
-
-### Gate Tags (`@gate.`)
-
-Format: `@gate.{gate-id}`
-
-| Tag | Gate | Requirements covered |
-|-----|------|---------------------|
-| `@gate.AM1` | Asset Management | CAT-FR-AM-01, -02, -03 |
-| `@gate.GD1` | Claim Extraction to Graph DB | CAT-FR-GD-01, -02, -09 |
-| `@gate.GD2` | Switchable Graph DB Backends | CAT-FR-GD-03, -04, -05, -06, -07, -08 |
-| `@gate.AC1` | Access Control | CAT-FR-AC-01, -02 |
-| `@gate.LS1` | Lifecycle and Storage | CAT-FR-LM-01 thru -04, CAT-FR-SF-01 thru -04 |
-| `@gate.CO1` | Compliance, Trust, Validation | CAT-FR-CO-01, -02, -03, -04, -05 |
-| `@gate.AU1` | Administration UI | CAT-FR-AU-01 |
-
-Gates are typically applied at the feature level. A feature may span multiple gates if its
-scenarios cover requirements from different gates.
 
 ### Domain Tags (`@domain.`)
 
@@ -88,50 +70,51 @@ Format: `@domain.{api-area}`
 Applied once per feature file. Prevents collision with config tags (e.g. `@domain.schema`
 is unambiguously the API domain, not the validation flag).
 
-### Config Variant Tags (`@cfg.`)
+### Config Variant Tags (`@cfg.`) — WHERE it runs
 
 Format: `@cfg.{variant}`
 
 These tags declare **which deployment configuration a scenario requires**. CI pipelines
 use them to select the correct subset for the currently deployed variant.
 
-**Graph backend:**
+Config tags answer: *"Against which server configuration must this scenario execute?"*
+
+**Server configuration profile:**
 
 | Tag | Meaning |
 |-----|---------|
-| `@cfg.neo4j` | Requires Neo4j backend (`graphstore.impl=neo4j`) |
+| `@cfg.default` | Requires default config (Gaia-X off, schema off). Would fail or be meaningless in strict. |
+| `@cfg.strict` | Requires strict config: Gaia-X on, schema validation on, signatures on (see ADR-003) |
 | `@cfg.fuseki` | Requires Fuseki backend (`graphstore.impl=fuseki`) |
 
-**Validation policy:**
+**Fixture dependency:**
 
 | Tag | Meaning |
 |-----|---------|
-| `@cfg.forced-schema-val` | Requires `verification.schema=true` |
-| `@cfg.no-schema-val` | Requires `verification.schema=false` (default after CAT-FR-SF-04) |
+| `@cfg.test-sig` | Scenario depends on properly signed test fixtures (did:web + trust infrastructure) |
 
-**Trust framework:**
+Scenarios **without** any `@cfg.` tag are **config-agnostic** — same assertion holds in
+both default and strict. They run in every config.
 
-| Tag | Meaning |
-|-----|---------|
-| `@cfg.gaiax` | Requires `trust-framework.gaiax.enabled=true` |
-| `@cfg.no-gaiax` | Requires `trust-framework.gaiax.enabled=false` (default) |
+> **Note:** The granular per-flag tags (`@cfg.gaiax`, `@cfg.forced-schema-val`, `@cfg.neo4j`,
+> etc.) defined in the original version of this ADR have been consolidated into
+> `@cfg.default` / `@cfg.strict` as an interim simplification
+> (see [ADR-003](003-interim-two-config-test-strategy.md)).
+> If the test profile orchestration CR is approved, granular tags may be reintroduced.
 
-**Signature verification:**
+### Test Purpose Tags (bare, no prefix) — WHY it exists
 
-| Tag | Meaning |
-|-----|---------|
-| `@cfg.real-sig` | Requires real DID resolution and signature verification |
-| `@cfg.test-sig` | Uses test fixtures with non-verifiable signatures (skip sig flags) |
+These tags classify **why a test was written**. They are orthogonal to config tags — a
+`@baseline` test can be `@cfg.default`, `@cfg.strict`, or config-agnostic.
 
-Scenarios **without** any `@cfg.` tag are configuration-agnostic and run in every variant.
+Purpose tags answer: *"What role does this test play in the overall suite?"*
 
-### Test Purpose Tags (bare, no prefix)
-
-| Tag | Meaning |
-|-----|---------|
-| `@smoke` | Minimal happy-path coverage — runs in every CI pipeline |
-| `@baseline` | Original catalogue behaviour that predates FACIS requirements |
-| `@regression` | Full coverage — runs on merge to main |
+| Tag | Meaning | Applied to |
+|-----|---------|------------|
+| `@smoke` | Minimal happy-path coverage — runs in every CI pipeline | Scenarios |
+| `@baseline` | Pre-FACIS behaviour that must continue to work. Not tied to a new requirement. | Features |
+| `@extended` | New behaviour added by FACIS requirements (CAT-FR-*) | Features |
+| `@regression` | Validates that original implementation (2.0.0) behaviour is preserved under strict config | Features |
 
 ### Dev Utility Tags (bare, no prefix)
 
@@ -144,66 +127,52 @@ Scenarios **without** any `@cfg.` tag are configuration-agnostic and run in ever
 ## Example
 
 ```gherkin
-@domain.verify @gate.CO1 @baseline
+@domain.verify @baseline
 Feature: Self-Description Verification
   As a Federated Catalogue API consumer
   I want to verify a Self-Description
   So that I can check its validity before submitting it
 
-  Background:
-    Given CAT Keycloak is up
-      And saved Keycloak token
-      And Federated Catalogue Server is up
-
-  @smoke @cfg.no-schema-val @cfg.test-sig
+  @smoke @cfg.test-sig
   Scenario: Verify SD with unrecognised type returns semantic error
-    When verify self-description from fixture "valid/gaiax-participant-legacy-type.vp.jsonld"
-    Then get http 422:Unprocessable Entity code
 
-  @smoke @req.CAT-FR-CO-01 @cfg.no-schema-val @cfg.test-sig
+  @smoke @req.CAT-FR-CO-01 @cfg.default @cfg.test-sig
   Scenario: Verify SD with correct ontology type passes semantic check
-    When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
-    Then get http 200:Success code
 
-  @smoke @cfg.no-schema-val
+  @smoke
   Scenario: Verify an invalid Self-Description returns error
-    When verify self-description
-      """
-      { "invalid": "payload" }
-      """
-    Then get http 422:Unprocessable Entity code
 
-  @req.CAT-FR-SF-04 @cfg.forced-schema-val @cfg.test-sig
+
+  @req.CAT-FR-SF-04 @cfg.strict @cfg.test-sig
   Scenario: Verify SD with forced schema validation enabled
-    When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
-    Then get http 422:Unprocessable Entity code
+
 ```
 
 ## CI Usage
 
 ```bash
-# Smoke tests for the default config (Neo4j, no Gaia-X, no forced schema)
-behave --tags="@smoke and not @cfg.fuseki and not @cfg.gaiax and not @cfg.forced-schema-val"
+# Default config — all tests that are not strict-only
+behave --tags="not @wip and not @cfg.strict"
 
-# All tests for Gate GD2 on Fuseki backend
-behave --tags="@gate.GD2 and @cfg.fuseki"
+# Strict config — all tests that are not default-only
+behave --tags="not @wip and not @cfg.default"
 
-# All tests for Gate CO1
-behave --tags="@gate.CO1"
+# Smoke tests on default config
+behave --tags="@smoke and not @wip and not @cfg.strict"
 
-# Baseline regression — original behaviour
-behave --tags="@baseline"
+# All compliance-related tests (filter by requirement category)
+behave --tags="@req.CAT-FR-CO"
 
-# Everything that runs on the default Neo4j config
-behave --tags="not @cfg.fuseki and not @cfg.gaiax and not @cfg.forced-schema-val"
+# Fuseki backend (future)
+behave --tags="@cfg.fuseki"
 ```
 
 ## Consequences
 
 **Benefits:**
 - Every tag dimension has a unique prefix — no naming collisions possible.
-- `@req.` and `@gate.` give direct traceability to SRS requirements and FACIS I&A gates
-  for evidence collection.
+- `@req.` gives direct traceability to SRS requirements. Acceptance gates can be derived
+  by filtering on requirement category (e.g. `@req.CAT-FR-CO` for gate CO1).
 - `@cfg.` tags allow CI to deploy a specific catalogue configuration and run exactly the
   matching test subset, without maintaining separate feature files per variant.
 - `@baseline` clearly separates pre-FACIS behaviour from new requirement coverage.
@@ -219,6 +188,6 @@ behave --tags="not @cfg.fuseki and not @cfg.gaiax and not @cfg.forced-schema-val
 
 ## References
 
-- FACIS Inspection and Approval Requirements (`01-input/2.0 FACIS_FCE_Inspection_and_Approval.pdf`) — gate definitions
+- FACIS Inspection and Approval Requirements (`01-input/2.0 FACIS_FCE_Inspection_and_Approval.pdf`) — gate-to-requirement mapping
 - FACIS SRS — requirement IDs (`CAT-FR-*`)
 - Behave tag expressions: https://behave.readthedocs.io/en/stable/tag_expressions.html

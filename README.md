@@ -8,6 +8,7 @@ BDD acceptance tests for the Eclipse XFSC Federated Catalogue, using the [bdd-ex
 - Running Federated Catalogue docker-compose stack (see `federated-catalogue/docker/`)
 - `127.0.0.1 key-server` in `/etc/hosts`
 - Keycloak user with Federated Catalogue roles (see [Keycloak Setup](#keycloak-setup) below)
+- **Windows (Git Bash):** `make` is not available — use `run.sh` instead (see [Windows / `run.sh`](#windows--runsh))
 
 ## Setup
 
@@ -21,7 +22,8 @@ cp env.sample.sh env.sh # done once initially
 source env.sh # done for each new terminal session to load proper env vars
 
 # Install dependencies and set up virtual environment
-make setup_dev
+make setup_dev        # Linux / Mac
+bash run.sh setup     # Windows (Git Bash)
 ```
 
 ## Keycloak Setup
@@ -94,10 +96,12 @@ You should see `"access_token": "eyJ..."` in the response.
 source env.sh
 
 # Run all BDD features
-make run_cat_bdd_dev
+make run_cat_bdd_dev          # Linux / Mac
+bash run.sh run               # Windows (Git Bash)
 
-# Run with HTML report, you will find the report in .tmp/behave/behave-report.html
-make run_cat_bdd_dev_html
+# Run with HTML report (.tmp/behave/behave-report.html)
+make run_cat_bdd_dev_html     # Linux / Mac
+bash run.sh run_html          # Windows (Git Bash)
 
 # Run code quality checks
 make code_check
@@ -189,6 +193,26 @@ scenario requires, so CI can run exactly the right subset per deployment variant
 | `@cfg.test-sig` | Signature verification | skipped (test fixtures) |
 
 Scenarios without `@cfg.*` tags are config-agnostic and run in every variant.
+
+## Windows / `run.sh`
+
+`make` is not available in Windows Git Bash. `run.sh` is a bash script that wraps the same targets as the Makefile and handles Windows-specific quirks:
+
+- Detects the correct venv activation path (`Scripts/` on Windows, `bin/` on Linux/Mac)
+- Automatically sets `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` to the Zscaler corporate CA cert if the file is present, so `pip` can download packages through the corporate proxy
+
+The cert path in `run.sh` is relative to the script, assuming `federated-catalogue` is cloned as a sibling of `cat-integration-tests` (the standard layout):
+
+```
+ZSCALER_CERT="$SCRIPT_DIR/../federated-catalogue/docker/certs/ZscalerRootCertificate.crt"
+```
+
+| Command | What it does |
+|---------|-------------|
+| `bash run.sh setup` | Create venv and install all dependencies |
+| `bash run.sh run` | Run all BDD tests |
+| `bash run.sh run_html` | Run tests and generate HTML report |
+| `bash run.sh run --tags=@smoke` | Run a subset by tag |
 
 ## Known Issues
 

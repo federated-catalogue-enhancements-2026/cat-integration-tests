@@ -54,6 +54,14 @@ Feature: Self-Description Verification
     When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
     Then get http 200:Success code
 
+  @regression @cfg.strict
+  Scenario: Signature skip is allowed even under strict config
+    # FINDING: strict config (gaiax=true, schema=true) does not prevent callers from
+    # skipping signature verification via query params. The four verification flags
+    # are orthogonal — no requirement mandates coupling them.
+    When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
+    Then get http 200:Success code
+
   @smoke @regression @cfg.test-sig
   Scenario: Verification with valid signatures passes
     # Fixture signed with JsonWebSignature2020 + did:web.

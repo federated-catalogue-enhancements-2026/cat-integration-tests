@@ -117,7 +117,8 @@ SIGNED_DIR := fixtures/valid
 # did:jwk DID — embeds the public key + x5u cert chain URL in the DID itself.
 # Resolved via Universal Resolver (requires uni-resolver-client >= 0.51.0).
 # x5u points to did-server cert chain for trust anchor validation.
-# Regenerate with: python3 scripts/generate-did-jwk.py
+# Regenerate with: python3 scripts/generate-did-jwk.py <pub-key.pem> <x5u-url>
+# Inspect with:    python3 scripts/decode-did-jwk.py <did:jwk:...>
 FC_SIGNER_DID := did:jwk:eyJhbGciOiJQUzI1NiIsImUiOiJBUUFCIiwia3R5IjoiUlNBIiwibiI6ImtfR3pvRnFPNHgzNjJleVowZnhqRDR1SlhZX2xacEZla1lWUEJCNjVQVWZJMHRSYWtfc3p1WlVVY3hEM3Y5eW00SzFtX0l5QWFtUVlhbHBiYVdMYnRELWItaU43TmcycExlZWs2Qkg5Q21WV2trN1RCTDFQYkROX0p3VnRkREpwcTJ3bmpLM1ItMjRfVWwzcGJXS2oxWk5wbHRVNjlJbGZ4YXhMMjJGMU1KeTVpRy1Ibkl0NGNMNS02UTJ4TjRJWmRHWjIySFN3dURsSm1PNW9qdG5RQTBlbDRuTURDc3V3Um52Y2FUbkdHbUxnYUc5R0RSWmR6Z1RsazBrbkktbFNWSFVsZWJiZXNhbFJ6ZHo5d3JkdFR0bmFWQWs0dDRJZ19pZUpJLTdVVjh6Z2ltNEpsNlAzLWY2bFhxdFFOd3pEMGk5VExLM25NMGtsMGdXUHk2eXVVUSIsInVzZSI6InNpZyIsIng1dSI6Imh0dHBzOi8vZGlkLXNlcnZlci9jZXJ0cy9jaGFpbi5wZW0ifQ\#0
 
 sign-fixtures:

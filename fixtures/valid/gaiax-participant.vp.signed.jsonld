@@ -45,17 +45,17 @@
     },
     "proof" : {
       "type" : "JsonWebSignature2020",
-      "created" : "2026-02-24T16:28:59Z",
-      "verificationMethod" : "did:jwk:eyJlIjoiQVFBQiIsImtpZCI6InNpZ25SU0EyMDQ4Iiwia3R5IjoiUlNBIiwibiI6IjhDUl8ySUJuSGlDcjVIY0kxcWh1dXpiRmdMRjFlSVI3dGM1NTF2WlN2ek1rTEtIVEpxeHVZR1BlVXp2U29ndWctTDJRQ2tpVWdmSjFZUzRFUmhrRFM2cVBJbFdMM1BGbkc4VjZQVWxoODZjTjgxWkhZdkhoUFYwUDdKT25UeGVKcTV1a1dFT0ctMUxrTmk5eGVnelRoMEVwV0w4NU5aUmJOYWJ0R0VqTUhqY04yak9NUldSYkE0OVdENVhOTExwdWUyNVlxbHcxOGZsbXNNRmh5dXk2YlVmanR2aXJ5SThwb0RLOVpXcGtPUjN6ejlNN0hpQXVyZ2NLSks5ODlEX0UzZ3d3S1FhQ21CbEJ4X3hESlJoVFB1bnJZUFBySHlpMExmaG5CeWgzcEJRMWhyelFLblZyX18zYkVwcE5abmRFLVhlWTY0VzNNaGUwa1RrREp2VXJndyJ9#0",
+      "created" : "2026-03-02T13:17:23Z",
+      "verificationMethod" : "did:web:did-server#0",
       "proofPurpose" : "assertionMethod",
-      "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..MHHF0LlEjIkI8nf0Zm8tjCi3kO0rEv3i8uQS9th6PH3Fx3K0LZ1M5imM-c-7BJ_LtMkHxF193Ou5jFB0iH30222YGZZioYMBeqY7cQH6r4_FY33aeBvSWiQupweSq37gQnY3_SC2q5rHSteFReW2Hd6fdkEv-w1FE-801Cz-jTWhQ4PHdRnyvopLkfUocPp3QlexnRqiBAN-YZo8PdpFV9DX7fH0B14cdcvlqIkdNsdkdqPHXmJDPBhD3pMrWA7nNX0CXfR78ns2Q7PtqVohoeG9jMzm6myXj3k9Wdl2ktcTdFL9dwThT2es0FvYDD8zfhkBShusQocoZwSaDZCcIA"
+      "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..ogZ4eCrDrxlTAo8dMZvVbEzhZek67DZItQ_PGe7YIqIWgUWoQJ1mL9MJZWcdh_-xPC71NyH7na7kVdIKueUSMjmIRua5Is_j-Zfq1PN18q3rd23fiB4Zu12wDu2VdxneCB540EsabnWftzdBT-QxkkwTtxss_MkN8G_8FYrDhEg9j_qF5xuov_PrbtvCGknZ5_YGLL16NROdUvXb7JkyErwjsvp9G5YioxKrmCpNpaylpq0sqN6U863zOBu-uFnNPc8sly2rXEW81_bpdibGcdJnSgYPQqsEw4PCF8u545BTmoyCaXVQo9qn2pvPBnEYO7wUoAVaAlWOiG230YeMsg"
     }
   } ],
   "proof" : {
     "type" : "JsonWebSignature2020",
-    "created" : "2026-02-24T16:28:59Z",
-    "verificationMethod" : "did:jwk:eyJlIjoiQVFBQiIsImtpZCI6InNpZ25SU0EyMDQ4Iiwia3R5IjoiUlNBIiwibiI6IjhDUl8ySUJuSGlDcjVIY0kxcWh1dXpiRmdMRjFlSVI3dGM1NTF2WlN2ek1rTEtIVEpxeHVZR1BlVXp2U29ndWctTDJRQ2tpVWdmSjFZUzRFUmhrRFM2cVBJbFdMM1BGbkc4VjZQVWxoODZjTjgxWkhZdkhoUFYwUDdKT25UeGVKcTV1a1dFT0ctMUxrTmk5eGVnelRoMEVwV0w4NU5aUmJOYWJ0R0VqTUhqY04yak9NUldSYkE0OVdENVhOTExwdWUyNVlxbHcxOGZsbXNNRmh5dXk2YlVmanR2aXJ5SThwb0RLOVpXcGtPUjN6ejlNN0hpQXVyZ2NLSks5ODlEX0UzZ3d3S1FhQ21CbEJ4X3hESlJoVFB1bnJZUFBySHlpMExmaG5CeWgzcEJRMWhyelFLblZyX18zYkVwcE5abmRFLVhlWTY0VzNNaGUwa1RrREp2VXJndyJ9#0",
+    "created" : "2026-03-02T13:17:24Z",
+    "verificationMethod" : "did:web:did-server#0",
     "proofPurpose" : "assertionMethod",
-    "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..H9F2gtMmN2OvMN-MqbYUD-O7ZZXlAbEg6BMfkRnjeY1PHcVvFYEd55CiyLI9aO_lnkQQzWgzVq8rPcxtrojTpue7n5U6d0qO5wWQZbHZQYbXLsBq1BKeYdr_lFOX2GSaiDcOJc8hgeDECDwfbOWUzGfYNxmPFvrBWRfDun5nwPIFBWdTr6Csm2yqSGkA6_x7WZCLJDQmPEoPv4BeAlSci0MIC0F4GD-KCI4CDXnqrXqDl5x03_UaDzJQdT2bYvgLNMZt1whaaq3Ft4zT0N4HtLF97QGUbv852G_9_rIunxXP2Q_VhrSxkklRIcnlBISNwbDS7LbW497T4y6mbwJa4g"
+    "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..a91tZHpEDqPgVSKZuO9muH3omQ8W0KFmUFPD_4XA4SU82DBg2oPh5RNa1BnCL8bxDE7vIVwPHXgcEBadjKd1k_Y12fFhkk9AcHrT5DbHI0tHSFJczt07TzZqo2ZyLIYXka5odxvtf44hteufIOA3DWQxSfAIaDg-Tb8OHqFnLkbYMggC-s7-3GNX__E_rbbIlDQSTpBneKrWxWixHObO7uNVabmo3WQE3MtWfAvCfgSJ4gyGV8sHr8XCL_4WUY9FuA-yrZ97jVPyjHh5ss5cp0bPuT07t4LmW1b3jzHX3-we4jKvVTsQM-Hm66dPc-Jy4CgD6MpPBc_6-lYZ3W1B5w"
   }
 }

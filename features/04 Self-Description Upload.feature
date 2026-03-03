@@ -49,3 +49,52 @@ Feature: Self-Description Upload
     Given self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld" is not uploaded
     When add self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld"
     Then get http 201:Created code
+
+  # --- CAT-FR-SF-04: No automatic SHACL validation on upload ---
+
+  @req.CAT-FR-SF-04 @cfg.default
+  Scenario: Upload SD that violates stored SHACL shape succeeds
+    # Schema validation is disabled by default (verifySchema=false).
+    # A SHACL shape requiring schema:legalName is in the schema store, but the
+    # uploaded participant has no legalName. Upload must still return 201.
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded
+      And self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld" is not uploaded
+    When add self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld"
+    Then get http 201:Created code
+      And uploaded schemas are cleaned up
+
+  @req.CAT-FR-SF-04 @cfg.default
+  Scenario: Upload response has empty validatorDids when signatures disabled
+    # With signatures disabled (default), the upload response metadata
+    # must not contain validator DIDs — no validation was performed.
+    Given self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" is not uploaded
+    When add self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld"
+    Then get http 201:Created code
+      And response has empty validatorDids
+
+  @req.CAT-FR-SF-04 @cfg.strict @cfg.test-sig
+  Scenario: Upload response has validatorDids under strict config
+    # counterpart: With signatures enabled (strict), the upload response
+    # must contain validator DIDs from the SD's proof objects.
+    Given self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld" is not uploaded
+    When add self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld"
+    Then get http 201:Created code
+      And response has non-empty validatorDids
+
+  @req.CAT-FR-SF-04 @cfg.strict @cfg.test-sig
+  Scenario: Upload SD that violates SHACL shape is rejected under strict config
+    # With schema=true (strict config), SHACL validation IS enforced on upload.
+    # The participant missing schema:legalName is rejected by the stored SHACL shape.
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded
+    When add self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld"
+    Then get http 422:Unprocessable Entity code
+      And uploaded schemas are cleaned up
+
+  @req.CAT-FR-SF-04 @cfg.default
+  Scenario: Verification passes for SHACL-violating SD when schema check disabled
+    # The /verification endpoint skips SHACL when verifySchema=false.
+    # A credential missing SHACL-required fields still passes verification.
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded
+    When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
+    Then get http 200:Success code
+      And uploaded schemas are cleaned up

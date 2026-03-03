@@ -65,20 +65,38 @@ code_check: \
 	coverage_run coverage_report \
 	mypy
 
+# --- Config-aware BDD targets ---
+# MODE selects which server profile the tests run against.
+# Usage:
+#   make run_cat_bdd_dev MODE=default   # excludes @cfg.strict and @cfg.test-sig
+#   make run_cat_bdd_dev MODE=strict    # excludes @cfg.default
+#   make run_cat_bdd_dev                # default mode
+#
+# See docs/adr/003-interim-two-config-test-strategy.md
+
+MODE ?= default
+
+BEHAVE_TAGS_default := --tags='-@wip,-@cfg.strict,-@cfg.test-sig'
+BEHAVE_TAGS_strict  := --tags='-@wip,-@cfg.default'
+BEHAVE_TAG_FILTER   := $(BEHAVE_TAGS_$(MODE))
+ifeq ($(BEHAVE_TAG_FILTER),)
+  $(error Unknown MODE "$(MODE)". Use MODE=default or MODE=strict)
+endif
+
 run_cat_bdd_dev: setup_dev
 	$(call check_bdd_env)
 	source "$(VENV_PATH_DEV)/bin/activate" && \
-		"$(VENV_PATH_DEV)/bin/coverage" run -m behave $${ARG_BDD_JUNIT:-}
+		"$(VENV_PATH_DEV)/bin/coverage" run -m behave $(BEHAVE_TAG_FILTER) $${ARG_BDD_JUNIT:-}
 
 run_cat_bdd_dev_html: setup_dev
 	$(call check_bdd_env)
 	mkdir -p .tmp/behave
 	source "$(VENV_PATH_DEV)/bin/activate" && \
-		"$(VENV_PATH_DEV)/bin/coverage" run -m behave -f html -o .tmp/behave/behave-report.html
+		"$(VENV_PATH_DEV)/bin/coverage" run -m behave $(BEHAVE_TAG_FILTER) -f html -o .tmp/behave/behave-report.html
 
 run_cat_bdd_prod: setup_prod
 	$(call check_bdd_env)
-	source "$(VENV_PATH_PROD)/bin/activate" && behave features/
+	source "$(VENV_PATH_PROD)/bin/activate" && behave $(BEHAVE_TAG_FILTER) features/
 
 run_all_test_coverage: coverage_run run_cat_bdd_dev coverage_report
 

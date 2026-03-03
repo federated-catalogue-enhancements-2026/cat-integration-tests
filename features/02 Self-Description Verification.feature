@@ -19,7 +19,7 @@ Feature: Self-Description Verification
   @smoke @req.CAT-FR-CO-01 @cfg.default @cfg.test-sig
   Scenario: Verify SD with correct ontology type passes semantic check
     # Uses fixture with @type matching loaded ontology (https://w3id.org/gaia-x/core#Participant).
-    # Signatures are skipped because the fixture contains test-only Ed25519 proofs.
+    # Signatures are skipped because the fixture is not signed.
     When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
     Then get http 200:Success code
 

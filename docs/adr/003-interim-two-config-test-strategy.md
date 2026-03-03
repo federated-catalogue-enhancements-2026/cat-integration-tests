@@ -16,8 +16,8 @@ Use **two configurations** — default and strict — as an interim strategy. A 
 
 | Config | Compose command | Behaviour |
 |---|---|---|
-| **Default** | `docker compose up` | Gaia-X off, schema validation off, signatures on |
-| **Strict** | `docker compose -f docker-compose.yml -f docker-compose.strict.yml up` | Gaia-X on, schema validation on, signatures on |
+| **Default** | `docker compose up` | Semantics only — Gaia-X off, schema off, signatures off |
+| **Strict** | `docker compose -f docker-compose.yml -f docker-compose.strict.yml up` | Full verification — Gaia-X on, schema on, signatures on |
 
 ### Tagging
 
@@ -29,13 +29,18 @@ Tests use two symmetric tags to mark config-specific scenarios:
 | `@cfg.strict` | Scenario expects strict behaviour (would fail or be meaningless in default) |
 | *(no @cfg tag)* | Config-agnostic — same expectation in both configs |
 
-```
-# Default run — excludes strict-only scenarios
-behave --tags="not @wip and not @cfg.strict"
+```bash
+# Default run — excludes strict-only scenarios and signature-dependent tests
+make run_cat_bdd_dev MODE=default
+# equivalent to: behave --tags='-@wip,-@cfg.strict,-@cfg.test-sig'
 
 # Strict run — excludes default-only scenarios
-behave --tags="not @wip and not @cfg.default"
+make run_cat_bdd_dev MODE=strict
+# equivalent to: behave --tags='-@wip,-@cfg.default'
 ```
+
+> **Note:** Behave 1.2.6 uses tag-expressions v1 syntax where negation is `-@tag`,
+> not `not @tag`. See [ADR-001](001-behave-tag-naming-convention.md#ci-usage).
 
 ### Overlay
 
@@ -47,13 +52,19 @@ services:
     environment:
       FEDERATED_CATALOGUE_VERIFICATION_TRUST_FRAMEWORK_GAIAX_ENABLED: "true"
       FEDERATED_CATALOGUE_VERIFICATION_SCHEMA: "true"
+      FEDERATED_CATALOGUE_VERIFICATION_VP_SIGNATURE: "true"
+      FEDERATED_CATALOGUE_VERIFICATION_VC_SIGNATURE: "true"
 ```
+
+Signature verification is disabled in the default profile because without the Gaia-X Trust
+Framework, it provides no meaningful security — see the catalogue architecture documentation
+(ADR 3: Disable Signature Verification by Default) for the full rationale.
 
 ## Rationale
 
 ### One overlay instead of many
 
-The original 2.0.0 implementation ran with all verification enabled. Most non-default test scenarios need the same "everything on" configuration. Splitting into per-flag overlays (`gaiax-on`, `schema-on`, `sigs-off`) creates orchestration complexity that the CR is designed to solve. Until the CR lands, a single strict overlay covers the majority of non-default scenarios.
+The original 2.0.0 implementation ran with all verification enabled. Most non-default test scenarios need the same "everything on" configuration. Splitting into per-flag overlays (`gaiax-on`, `schema-on`, `sigs-on`) creates orchestration complexity that the CR is designed to solve. Until the CR lands, a single strict overlay covers the majority of non-default scenarios.
 
 ### Forward-compatible with full orchestration
 

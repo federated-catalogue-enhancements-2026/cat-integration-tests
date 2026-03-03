@@ -150,20 +150,26 @@ Feature: Self-Description Verification
 
 ## CI Usage
 
-> **Tag expression syntax:** Behave 1.2.6 uses **tag-expressions v1** by default. In v1,
-> negation uses the `-` prefix (not the `not` keyword), and comma-separated tags within a
-> single `--tags` flag are ANDed. The `not`/`and`/`or` keywords require the optional
-> `tag-expressions` v2 package, which is not a dependency of bdd-executor.
+> **Tag expression syntax:** Behave 1.2.6 uses **tag-expressions v1** by default. In v1:
+>
+> - Negation uses the `-` prefix (not the `not` keyword).
+> - **Comma = OR** within a single `--tags` flag.
+> - **Multiple `--tags` flags = AND**.
+> - The `not`/`and`/`or` keywords require tag-expressions v2, which behave 1.2.6 does
+>   not use even when the package is installed.
+>
+> **Common mistake:** `--tags='-@wip,-@cfg.strict'` means NOT-wip **OR** NOT-strict,
+> which is almost always true. Use separate `--tags` flags for AND:
 
 ```bash
 # Default config — all tests that are not strict-only
-behave --tags='-@wip,-@cfg.strict,-@cfg.test-sig'
+behave --tags='-@wip' --tags='-@cfg.strict' --tags='-@cfg.test-sig'
 
 # Strict config — all tests that are not default-only
-behave --tags='-@wip,-@cfg.default'
+behave --tags='-@wip' --tags='-@cfg.default'
 
 # Smoke tests on default config
-behave --tags='@smoke,-@wip,-@cfg.strict,-@cfg.test-sig'
+behave --tags='@smoke' --tags='-@wip' --tags='-@cfg.strict' --tags='-@cfg.test-sig'
 
 # All compliance-related tests (filter by requirement category)
 behave --tags='@req.CAT-FR-CO'

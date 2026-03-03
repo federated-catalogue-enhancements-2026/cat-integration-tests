@@ -31,6 +31,7 @@ Feature: Self-Description Upload
   Scenario: Existing Gaia-X credential still passes verification
     # Backward compatibility: Gaia-X-typed credentials are not broken by
     # removal of mandatory compliance — they still verify successfully.
+    Given self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" is not uploaded
     When verify self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" skipping signatures
     Then get http 200:Success code
 

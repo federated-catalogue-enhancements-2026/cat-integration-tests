@@ -76,8 +76,10 @@ code_check: \
 
 MODE ?= default
 
-BEHAVE_TAGS_default := --tags='-@wip,-@cfg.strict,-@cfg.test-sig'
-BEHAVE_TAGS_strict  := --tags='-@wip,-@cfg.default'
+# v1 tag syntax: comma = OR, multiple --tags = AND.
+# Each negation must be a separate --tags flag for AND semantics.
+BEHAVE_TAGS_default := --tags='-@wip' --tags='-@cfg.strict' --tags='-@cfg.test-sig'
+BEHAVE_TAGS_strict  := --tags='-@wip' --tags='-@cfg.default'
 BEHAVE_TAG_FILTER   := $(BEHAVE_TAGS_$(MODE))
 ifeq ($(BEHAVE_TAG_FILTER),)
   $(error Unknown MODE "$(MODE)". Use MODE=default or MODE=strict)

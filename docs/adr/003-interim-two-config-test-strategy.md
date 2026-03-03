@@ -32,15 +32,16 @@ Tests use two symmetric tags to mark config-specific scenarios:
 ```bash
 # Default run — excludes strict-only scenarios and signature-dependent tests
 make run_cat_bdd_dev MODE=default
-# equivalent to: behave --tags='-@wip,-@cfg.strict,-@cfg.test-sig'
+# equivalent to: behave --tags='-@wip' --tags='-@cfg.strict' --tags='-@cfg.test-sig'
 
 # Strict run — excludes default-only scenarios
 make run_cat_bdd_dev MODE=strict
-# equivalent to: behave --tags='-@wip,-@cfg.default'
+# equivalent to: behave --tags='-@wip' --tags='-@cfg.default'
 ```
 
 > **Note:** Behave 1.2.6 uses tag-expressions v1 syntax where negation is `-@tag`,
-> not `not @tag`. See [ADR-001](001-behave-tag-naming-convention.md#ci-usage).
+> not `not @tag`. Each negation needs a separate `--tags` flag because comma = OR in v1.
+> See [ADR-001](001-behave-tag-naming-convention.md#ci-usage).
 
 ### Overlay
 

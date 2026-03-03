@@ -92,6 +92,21 @@ def execute_query(context: ContextType, statement: str) -> None:
     context.requests_response = context.fc_server.query(statement)
 
 
+@when("execute openCypher query")
+def execute_opencypher_query(context: ContextType) -> None:
+    assert context.text, "Step requires docstring with openCypher query"
+    context.requests_response = context.fc_server.query(context.text, query_language="opencypher")
+
+
+@then('query result contains "{expected_value}"')
+def query_result_contains(context: ContextType, expected_value: str) -> None:
+    body = context.requests_response.json()
+    items = body.get("items", [])
+    flat = str(items)
+    assert expected_value in flat, \
+        f"Expected '{expected_value}' in query results, got: {items}"
+
+
 # -- Schemas --
 
 @when("request list of schemas")

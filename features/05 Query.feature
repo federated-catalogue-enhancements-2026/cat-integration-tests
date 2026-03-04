@@ -13,8 +13,8 @@ Feature: Query
   Scenario: Upload unsigned credential and query it without trust framework
     # Default profile: signatures off, gaiax off. An unsigned credential can be
     # uploaded and its claims are queryable in the graph — no trust infrastructure needed.
-    Given self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld" is not uploaded
-    When add self-description from fixture "valid/gaiax-participant-correct-type.vp.jsonld"
+    Given self-description from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
+    When add self-description from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld"
     Then get http 201:Created code
     When execute openCypher query
       """
@@ -26,8 +26,8 @@ Feature: Query
   @smoke @cfg.strict @cfg.test-sig
   Scenario: Query uploaded Self-Description by credential subject
     # Strict profile: full verification chain. Signed fixture required.
-    Given self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld" is not uploaded
-    When add self-description from fixture "valid/gaiax-participant-correct-type.vp.signed.jsonld"
+    Given self-description from fixture "valid/gaiax-participant.vp.signed.jsonld" is not uploaded
+    When add self-description from fixture "valid/gaiax-participant.vp.signed.jsonld"
     Then get http 201:Created code
     When execute openCypher query
       """

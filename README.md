@@ -118,8 +118,11 @@ src/eu/xfsc/bdd/cat/        # Shared Python package
     fc_server.py             #   Server wrapper (BaseServiceKeycloak)
     keycloak.py              #   CatKeycloakServer (password grant override)
 fixtures/                    # Test payloads
-  valid/                     #   Signed VPs / SDs for positive tests
-  invalid/                   #   Broken payloads for negative tests
+  valid/                     #   Unsigned (*.vp.jsonld) + signed (*.vp.signed.jsonld)
+  invalid/                   #   Deliberately broken payloads for negative tests
+scripts/                     # Dev / diagnostic utilities
+  generate-did-jwk.py         #   Generate did:jwk DID (diagnostic — not used in normal workflow)
+  decode-did-jwk.py           #   Decode did:jwk DID to inspect embedded JWK (diagnostic)
 tests/                       # Unit tests for shared utilities
 archived/                    # Legacy Postman collection (reference only)
 environment.py               # Behave hooks (before_all)
@@ -190,10 +193,140 @@ scenario requires, so CI can run exactly the right subset per deployment variant
 
 Scenarios without `@cfg.*` tags are config-agnostic and run in every variant.
 
+## Signed Test Fixtures
+
+The FC server verifies LD-Signatures on uploaded Self-Descriptions by resolving the DID in the proof's `verificationMethod` field and checking the cryptographic signature against the public key.
+
+Test fixtures use **`did:web`** — the same DID method that real Gaia-X participants use. The DID resolves to a DID document hosted by the docker-compose `did-server` service, which also serves the X.509 certificate chain and mocks the trust anchor registry. See [ADR-002](docs/adr/002-did-web-over-did-jwk.md) for the rationale behind this choice.
+
+### Pre-signed fixtures (committed to repo)
+
+Signed fixtures in `fixtures/valid/` are committed to git and work everywhere out of the box. **You do not need to re-sign them for normal test runs.**
+
+### When to re-sign
+
+Re-sign only when you **change the content** of an unsigned fixture template in `fixtures/unsigned/` (e.g. different `credentialSubject` fields, new `@type`). Changing the JSON-LD content invalidates the existing signature.
+
+### How to sign
+
+```bash
+# Prerequisites: Java 21+, fc-tools-signer fat jar + its RSA key
+# Build the signer from federated-catalogue source (one-time):
+#   cd <federated-catalogue>/fc-tools/signer && mvn package -DskipTests
+
+FC_SIGNER_JAR=/path/to/fc-tools-signer-2.1.0-SNAPSHOT-full.jar \
+FC_SIGNER_KEY=/path/to/rsa2048.sign.pem \
+  make sign-fixtures
+```
+
+This signs every `*.vp.jsonld` (excluding `*.signed.jsonld`) in `fixtures/valid/` and places the signed output alongside with a `.signed.jsonld` suffix.
+
+### File layout
+
+```
+fixtures/
+  valid/
+    gaiax-participant-correct-type.vp.jsonld          # Unsigned source (used with skip-sigs)
+    gaiax-participant-correct-type.vp.signed.jsonld   # ← signed output (did:web, PS256)
+    gaiax-participant-legacy-type.vp.jsonld            # Unsigned (wrong @type — negative test)
+    gaiax-participant-legacy-type.vp.signed.jsonld     # ← signed output
+    gaiax-participant.vp.jsonld                        # Unsigned (JWS-2020 context, no legacy proofs)
+    gaiax-participant.vp.signed.jsonld                 # ← signed output
+    gaiax-participant-minimal-ctx.vp.jsonld            # Unsigned (minimal context)
+    gaiax-participant-minimal-ctx.vp.signed.jsonld     # ← signed output
+  invalid/
+    hasInvalidSignature.jsonld                         # Corrupted JWS
+    hasNoSignature1.jsonld                             # Missing proof
+    participant_without_proofs.json                    # No proof objects at all
+    sd-without-credential-subject.json                 # Missing credentialSubject
+    sd-without-issuer.json                             # Missing issuer
+```
+
+### Key material
+
+The signing key (`rsa2048.sign.pem`) and signer tool live in the `fc-tools/signer` module of the [federated-catalogue](https://gitlab.eclipse.org/eclipse/xfsc/cat/fc-service) repo. The corresponding public key is published in the DID document served by the `did-server` docker-compose service. The `did-server/setup.sh` script regenerates the DID document, certificates, and chain when the signing key changes.
+
+## Test Profiles & Trust Configuration
+
+Signature verification in the Federated Catalogue relies on a **trust chain**: the proof's `verificationMethod` DID resolves to a JWK, the JWK's `x5u` field points to an X.509 certificate chain, and that chain is validated against a trust anchor registry. The configuration of this trust chain differs fundamentally between local and real environments.
+
+### Local (docker-compose)
+
+The local stack is **fully self-contained** — no external services or real certificates required.
+
+| Component | How it works locally |
+|-----------|---------------------|
+| DID method | `did:web:did-server` — resolves to DID document hosted by nginx container |
+| DID document | `/.well-known/did.json` — contains public key JWK with `alg` and `x5u` |
+| `x5u` URL | `https://did-server/certs/chain.pem` — served by the same nginx container |
+| Certificate | Self-signed by a local CA (generated by `did-server/setup.sh`) |
+| Trust anchor registry | Mocked by did-server nginx (returns 200 for any POST to `/api/trustAnchor/chain/file`) |
+| JVM truststore | Custom `cacerts` with the local CA cert added |
+
+This means tests tagged `@cfg.real-sig` pass without any external infrastructure. The trade-off is that **no real Gaia-X trust validation happens** — the mock registry accepts any certificate.
+
+To inspect the DID document:
+```bash
+curl -sk https://did-server/.well-known/did.json | python3 -m json.tool
+```
+
+### QA / Staging (real Gaia-X trust anchor)
+
+A real QA environment would validate signatures against the **actual Gaia-X Trust Anchor registry** (e.g. `https://registry.lab.gaia-x.eu/v1/api/trustAnchor/chain/file`). This requires:
+
+| Component | What's needed |
+|-----------|--------------|
+| Certificate | Signed by a CA that the Gaia-X registry trusts (not self-signed) |
+| `x5u` URL | Publicly reachable HTTPS URL hosting the cert chain PEM |
+| Trust anchor URL | Real registry endpoint (configured via `FEDERATED_CATALOGUE_VERIFICATION_TRUST_FRAMEWORK_GAIAX_TRUST_ANCHOR_URL`) |
+| DID resolution | Universal Resolver must be reachable for `did:web` resolution |
+| JVM truststore | Default cacerts (no custom CA needed if using a publicly trusted certificate) |
+
+Fixtures signed for local testing **will not pass** QA verification — the local CA cert is not trusted by the real registry. However, because `did:web` provides indirection, the **same signed fixtures** can be reused across environments — only the DID document and certificates served at the `did:web` hostname need to change (see [ADR-002](docs/adr/002-did-web-over-did-jwk.md)).
+
+### Profile summary
+
+| Aspect | Local (docker-compose) | QA (real trust anchor) |
+|--------|----------------------|----------------------|
+| Trust anchor | Mock (did-server nginx) | Real Gaia-X registry |
+| Certificate authority | Self-signed local CA | Gaia-X-trusted CA |
+| `x5u` hosting | did-server container | Public HTTPS endpoint |
+| Fixture portability | Works out of the box | Same fixtures — only DID document + certs differ |
+| Network dependencies | None (all in Docker network) | Internet access to registry + x5u host |
+| Behave tags | `@cfg.real-sig` | `@cfg.real-sig` (same tests, different infra) |
+
+### What's not yet implemented
+
+There is currently no QA test profile. The `qa` target in `env.sh` configures Keycloak and FC host endpoints but does **not** address the trust chain (signing key, certificates, trust anchor URL). Setting up a real QA profile requires:
+
+1. Obtaining a certificate from a Gaia-X-trusted CA for the test signing key
+2. Hosting the DID document and cert chain at a stable, publicly reachable HTTPS URL that matches the `did:web` hostname in the fixtures
+3. Configuring the FC server to use the real trust anchor registry URL
+
+Because `did:web` provides indirection, the signed fixtures do **not** need to be re-signed for QA — only the DID document and certificates at the `did:web` host need to change.
+
 ## Known Issues
 
+### Infrastructure  
+
 - **`FC_CLIENT_SECRET` in `dev.env`** — The default `dev.env` ships with `FC_CLIENT_SECRET=**********` (placeholder). This must be replaced with the actual Keycloak client secret, otherwise `GET /session`, `GET /participants`, and all user endpoints return 500 (the FC server fails to authenticate to Keycloak admin API).
-- **Fixture `@type` namespace** — Valid test fixtures must use `https://w3id.org/gaia-x/core#Participant` (not the legacy `http://w3id.org/gaia-x/participant#Participant`) to match the auto-loaded ontology. See `fixtures/valid/gaiax-participant-correct-type.vp.jsonld`.
+- **`docker compose restart` does not pick up env var changes.** Use `docker compose up -d <service>` to recreate containers when you change `dev.env` or compose overrides.
+
+### Signature Verification
+
+- **`alg` field required in JWK** — `LocalSignatureVerifier` reads the algorithm from `jwk.getAlg()`. If the DID document's JWK omits `"alg": "PS256"`, verification fails with `"VerifiableCredential does not match with proof"`. Unlike `UniSignatureVerifier`, `LocalSignatureVerifier` does not fall back to the JWS header algorithm.
+- **Weak RSA keys rejected after uni-resolver-client upgrade** — Bouncy Castle (pulled in transitively by the upgrade) rejects the bundled `rsa2048.sign.pem` with `"RSA modulus has a small prime factor"`. This surfaces misleadingly as a signature mismatch in the HTTP response — the real error is only in server logs. Fix: generate a new key with `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048`.
+- **`sdfiles.validators` column width** — The default varchar(256) column in PostgreSQL may truncate long DIDs. With `did:web` this is not an issue, but if `did:jwk` is used for debugging, its ~800-char URIs require a database migration to `varchar(2048)[]`.
+- **Only `JsonWebSignature2020` is supported** — Old fixtures using `Ed25519Signature2018` fail with `"Ed25519Signature2018 not supported"`. All fixtures must use PS256/RSA with JWS 2020.
+- **Python `requests.post(data=string)` sends wrong encoding** — Passing a JSON-LD string directly as `data=` adds charset headers that confuse the FC server's Jackson parser (returns 400: `"Unexpected end-of-input"`). Fix: always use `data=payload.encode("utf-8")`. Already applied in `src/eu/xfsc/bdd/cat/components/fc_server.py`.
+
+### Fixtures & Content
+
+- **Fixture `@type` namespace** — Valid test fixtures must use `https://w3id.org/gaia-x/core#Participant` (not the legacy `http://w3id.org/gaia-x/participant#Participant`) to match the auto-loaded ontology.
+- **2.0.0 vs post-CO-01 config structure** — The 2.0.0 image uses flat env vars (e.g. `FEDERATED_CATALOGUE_VERIFICATION_TRUST_ANCHOR_URL`), while post-CO-01 uses nested ones (e.g. `..._TRUST_FRAMEWORK_GAIAX_TRUST_ANCHOR_URL`). The 2.0.0 image also has no `GAIAX_ENABLED` toggle. See the compose overlay in `docker-compose.original.yml` of the federated catalogue repo.
+
+### Upstream
+
 - The upstream bdd-executor `KeycloakServer.fetch_token()` hardcodes `client_credentials` grant. This is overridden locally via `CatKeycloakServer`. A PR to make grant type configurable is planned.
 
 ## Background

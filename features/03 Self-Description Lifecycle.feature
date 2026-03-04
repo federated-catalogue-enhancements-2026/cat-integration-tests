@@ -14,6 +14,10 @@ Feature: Self-Description Lifecycle
     When request list of self-descriptions
     Then get http 200:Success code
 
+  # NOTE: 500 here means the FC server cannot authenticate to Keycloak's admin API.
+  # The /participants endpoint calls Keycloak internally via client_credentials grant.
+  # Check that KEYCLOAK_CREDENTIALS_SECRET in the catalogue environment matches the actual
+  # "federated-catalogue" client secret in Keycloak (Clients → Credentials tab).
   @smoke @domain.participant
   Scenario: List Participants
     When request list of participants

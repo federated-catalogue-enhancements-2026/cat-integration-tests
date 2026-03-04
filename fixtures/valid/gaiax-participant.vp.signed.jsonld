@@ -1,0 +1,61 @@
+{
+  "@context" : [ "https://www.w3.org/2018/credentials/v1", "https://w3id.org/security/suites/jws-2020/v1" ],
+  "type" : [ "VerifiablePresentation" ],
+  "holder" : "did:example:holder",
+  "verifiableCredential" : [ {
+    "@context" : [ "https://www.w3.org/2018/credentials/v1", "https://w3id.org/security/suites/jws-2020/v1" ],
+    "@id" : "https://delta-dao.com/.well-known/participant.json",
+    "issuer" : "did:web:compliance.lab.gaia-x.eu:v1",
+    "issuanceDate" : "2024-01-01T19:37:24Z",
+    "type" : [ "VerifiableCredential" ],
+    "credentialSubject" : {
+      "@context" : {
+        "gax-participant" : "http://w3id.org/gaia-x/participant#",
+        "xsd" : "http://www.w3.org/2001/XMLSchema#"
+      },
+      "id" : "http://example.org/test-issuer",
+      "@type" : "https://w3id.org/gaia-x/core#Participant",
+      "gax-participant:name" : {
+        "@value" : "deltaDAO AG",
+        "@type" : "xsd:string"
+      },
+      "gax-participant:legalName" : {
+        "@value" : "deltaDAO AG",
+        "@type" : "xsd:string"
+      },
+      "gax-participant:legalAddress" : {
+        "@type" : "gax-participant:Address",
+        "gax-participant:country" : {
+          "@value" : "DE",
+          "@type" : "xsd:string"
+        },
+        "gax-participant:street-address" : {
+          "@value" : "Geibelstraße 46b",
+          "@type" : "xsd:string"
+        },
+        "gax-participant:postal-code" : {
+          "@value" : "22303",
+          "@type" : "xsd:string"
+        },
+        "gax-participant:locality" : {
+          "@value" : "Hamburg",
+          "@type" : "xsd:string"
+        }
+      }
+    },
+    "proof" : {
+      "type" : "JsonWebSignature2020",
+      "created" : "2026-03-02T13:17:23Z",
+      "verificationMethod" : "did:web:did-server#0",
+      "proofPurpose" : "assertionMethod",
+      "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..ogZ4eCrDrxlTAo8dMZvVbEzhZek67DZItQ_PGe7YIqIWgUWoQJ1mL9MJZWcdh_-xPC71NyH7na7kVdIKueUSMjmIRua5Is_j-Zfq1PN18q3rd23fiB4Zu12wDu2VdxneCB540EsabnWftzdBT-QxkkwTtxss_MkN8G_8FYrDhEg9j_qF5xuov_PrbtvCGknZ5_YGLL16NROdUvXb7JkyErwjsvp9G5YioxKrmCpNpaylpq0sqN6U863zOBu-uFnNPc8sly2rXEW81_bpdibGcdJnSgYPQqsEw4PCF8u545BTmoyCaXVQo9qn2pvPBnEYO7wUoAVaAlWOiG230YeMsg"
+    }
+  } ],
+  "proof" : {
+    "type" : "JsonWebSignature2020",
+    "created" : "2026-03-02T13:17:24Z",
+    "verificationMethod" : "did:web:did-server#0",
+    "proofPurpose" : "assertionMethod",
+    "jws" : "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJQUzI1NiJ9..a91tZHpEDqPgVSKZuO9muH3omQ8W0KFmUFPD_4XA4SU82DBg2oPh5RNa1BnCL8bxDE7vIVwPHXgcEBadjKd1k_Y12fFhkk9AcHrT5DbHI0tHSFJczt07TzZqo2ZyLIYXka5odxvtf44hteufIOA3DWQxSfAIaDg-Tb8OHqFnLkbYMggC-s7-3GNX__E_rbbIlDQSTpBneKrWxWixHObO7uNVabmo3WQE3MtWfAvCfgSJ4gyGV8sHr8XCL_4WUY9FuA-yrZ97jVPyjHh5ss5cp0bPuT07t4LmW1b3jzHX3-we4jKvVTsQM-Hm66dPc-Jy4CgD6MpPBc_6-lYZ3W1B5w"
+  }
+}

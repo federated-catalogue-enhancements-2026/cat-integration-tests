@@ -40,7 +40,7 @@ class Server(BaseServiceKeycloak):
         self._update_header(content_type="application/json")
         return self.http.post(
             url=f"{self.host}self-descriptions",
-            data=payload,
+            data=payload.encode("utf-8"),
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 
@@ -84,22 +84,20 @@ class Server(BaseServiceKeycloak):
         self._update_header(content_type="application/json")
         return self.http.post(
             url=f"{self.host}verification",
-            data=payload,
+            data=payload.encode("utf-8"),
             params=params,
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 
     # -- Query --
 
-    def query(self, statement: str, params: Optional[dict[str, Any]] = None) -> requests.Response:
-        """POST /query"""
-        self._update_header(content_type="application/json")
-        body: dict[str, Any] = {"statement": statement}
-        if params:
-            body["parameters"] = params
+    def query(self, statement: str, query_language: str = "opencypher") -> requests.Response:
+        """POST /query — raw query text with language-specific Content-Type."""
+        content_type = f"application/{query_language}-query"
+        self._update_header(content_type=content_type)
         return self.http.post(
             url=f"{self.host}query",
-            json=body,
+            data=statement.encode("utf-8"),
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 
@@ -119,7 +117,7 @@ class Server(BaseServiceKeycloak):
         self._update_header(content_type="application/json")
         return self.http.post(
             url=f"{self.host}schemas",
-            data=payload,
+            data=payload.encode("utf-8"),
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 

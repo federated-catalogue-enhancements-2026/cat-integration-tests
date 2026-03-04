@@ -112,12 +112,20 @@ class Server(BaseServiceKeycloak):
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 
-    def add_schema(self, payload: str) -> requests.Response:
+    def add_schema(self, payload: str, content_type: str = "application/json") -> requests.Response:
         """POST /schemas"""
-        self._update_header(content_type="application/json")
+        self._update_header(content_type=content_type)
         return self.http.post(
             url=f"{self.host}schemas",
             data=payload.encode("utf-8"),
+            timeout=CONNECT_TIMEOUT_IN_SECONDS
+        )
+
+    def delete_schema(self, schema_id: str) -> requests.Response:
+        """DELETE /schemas/{schemaId}"""
+        self._update_header()
+        return self.http.delete(
+            url=f"{self.host}schemas/{schema_id}",
             timeout=CONNECT_TIMEOUT_IN_SECONDS
         )
 

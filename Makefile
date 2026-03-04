@@ -157,7 +157,7 @@ endif
 	fi; \
 	for src in $$unsigned; do \
 		base=$$(basename "$$src" .vp.jsonld); \
-		dest="$(FIXTURE_DIR)/$${base}.vp.signed.jsonld"; \
+		dest="$$(dirname "$$src")/$${base}.vp.signed.jsonld"; \
 		echo "Signing $$src → $$dest"; \
 		java -jar "$(FC_SIGNER_JAR)" \
 			sd="$$(pwd)/$$src" \

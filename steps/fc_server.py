@@ -98,6 +98,22 @@ def execute_opencypher_query(context: ContextType) -> None:
     context.requests_response = context.fc_server.query(context.text, query_language="opencypher")
 
 
+@then('response has empty validatorDids')
+def response_has_empty_validator_dids(context: ContextType) -> None:
+    body = context.requests_response.json()
+    validators = body.get("validatorDids")
+    assert not validators, \
+        f"Expected empty or null validatorDids, got: {validators}"
+
+
+@then('response has non-empty validatorDids')
+def response_has_non_empty_validator_dids(context: ContextType) -> None:
+    body = context.requests_response.json()
+    validators = body.get("validatorDids", [])
+    assert len(validators) > 0, \
+        f"Expected non-empty validatorDids, got: {validators}"
+
+
 @then('query result contains "{expected_value}"')
 def query_result_contains(context: ContextType, expected_value: str) -> None:
     body = context.requests_response.json()
@@ -108,6 +124,45 @@ def query_result_contains(context: ContextType, expected_value: str) -> None:
 
 
 # -- Schemas --
+
+CONTENT_TYPE_MAP = {
+    ".ttl": "text/turtle",
+    ".jsonld": "application/ld+json",
+    ".json": "application/json",
+    ".rdf": "application/rdf+xml",
+}
+
+
+@given('schema from fixture "{fixture_path}" is uploaded')
+def upload_schema_from_fixture(context: ContextType, fixture_path: str) -> None:
+    path = FIXTURES_DIR / fixture_path
+    payload = path.read_text()
+    content_type = CONTENT_TYPE_MAP.get(path.suffix, "application/json")
+    resp = context.fc_server.add_schema(payload, content_type=content_type)
+    assert resp.status_code in (200, 201, 409), \
+        f"Schema upload failed: {resp.status_code}, {resp.content}"
+    # Track uploaded schema ID for cleanup
+    if resp.status_code == 201 and "location" in resp.headers:
+        schema_id = resp.headers["location"].rstrip("/").rsplit("/", 1)[-1]
+        try:
+            context._uploaded_schema_ids.append(schema_id)
+        except KeyError:
+            context._uploaded_schema_ids = [schema_id]
+
+
+@given('uploaded schemas are cleaned up')
+@then('uploaded schemas are cleaned up')
+def cleanup_uploaded_schemas(context: ContextType) -> None:
+    try:
+        schema_ids = context._uploaded_schema_ids
+    except KeyError:
+        schema_ids = []
+    for schema_id in schema_ids:
+        resp = context.fc_server.delete_schema(schema_id)
+        assert resp.status_code in (200, 204, 404), \
+            f"Schema cleanup failed for {schema_id}: {resp.status_code}, {resp.content}"
+    context._uploaded_schema_ids = []
+
 
 @when("request list of schemas")
 def request_list_schemas(context: ContextType) -> None:

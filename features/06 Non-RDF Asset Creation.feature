@@ -1,4 +1,4 @@
-@domain.sd @extended @req.CAT-FR-AM-01 @cfg.default
+@domain.sd @extended @req.CAT-FR-AM-01
 Feature: Non-RDF Asset Creation
   As a user of the Federated Catalogue
   I want to upload assets in arbitrary formats via the /self-descriptions endpoint

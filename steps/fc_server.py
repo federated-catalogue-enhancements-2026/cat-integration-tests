@@ -166,6 +166,15 @@ def cleanup_uploaded_schemas(context: ContextType) -> None:
 
 # -- Assets (non-RDF uploads) --
 
+@given('asset from fixture "{fixture_path}" is not uploaded')
+def ensure_asset_not_uploaded(context: ContextType, fixture_path: str) -> None:
+    file_content = (FIXTURES_DIR / fixture_path).read_bytes()
+    sd_hash = hashlib.sha256(file_content).hexdigest()
+    resp = context.fc_server.delete_self_description(sd_hash)
+    assert resp.status_code in (200, 404), \
+        f"Unexpected cleanup response: {resp.status_code}, {resp.content}"
+
+
 @when('add asset from fixture "{fixture_path}" with content-type "{content_type}"')
 def add_asset_multipart(context: ContextType, fixture_path: str, content_type: str) -> None:
     path = FIXTURES_DIR / fixture_path

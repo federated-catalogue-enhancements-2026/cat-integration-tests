@@ -16,6 +16,7 @@ Feature: Non-RDF Asset Creation
   Scenario: Upload plain text file via multipart/form-data
     # A plain text contract template is uploaded as multipart/form-data.
     # The server stores it without RDF verification and returns 201 with metadata.
+    Given asset from fixture "valid/non-rdf/template.txt" is not uploaded
     When add asset from fixture "valid/non-rdf/template.txt" with content-type "text/plain"
     Then get http 201:Created code
       And response content-type is "text/plain"
@@ -23,6 +24,7 @@ Feature: Non-RDF Asset Creation
 
   Scenario: Upload YAML config file via multipart/form-data
     # YAML files are treated as non-RDF assets.
+    Given asset from fixture "valid/non-rdf/config.yaml" is not uploaded
     When add asset from fixture "valid/non-rdf/config.yaml" with content-type "application/x-yaml"
     Then get http 201:Created code
       And response content-type is "application/x-yaml"
@@ -30,6 +32,7 @@ Feature: Non-RDF Asset Creation
     
   Scenario: Upload PDF binary file via multipart/form-data
     # A PDF file is uploaded as multipart/form-data with binary integrity preserved.
+    Given asset from fixture "valid/non-rdf/sample.pdf" is not uploaded
     When add asset from fixture "valid/non-rdf/sample.pdf" with content-type "application/pdf"
     Then get http 201:Created code
       And response content-type is "application/pdf"
@@ -38,6 +41,7 @@ Feature: Non-RDF Asset Creation
   Scenario: Upload plain JSON without @context is stored without verification
     # A JSON file without @context is NOT JSON-LD. It is stored as a non-RDF asset
     # without going through RDF verification or graph storage.
+    Given asset from fixture "valid/non-rdf/contract.json" is not uploaded
     When add asset from fixture "valid/non-rdf/contract.json" with content-type "application/json"
     Then get http 201:Created code
       And response content-type is "application/json"
@@ -46,6 +50,7 @@ Feature: Non-RDF Asset Creation
   Scenario: Upload file via application/octet-stream
     # Binary upload using raw body with application/octet-stream content-type.
     # The server accepts it as a non-RDF asset.
+    Given asset from fixture "valid/non-rdf/sample.pdf" is not uploaded
     When add asset from fixture "valid/non-rdf/sample.pdf" as raw binary
     Then get http 201:Created code
       And response has file size greater than 0

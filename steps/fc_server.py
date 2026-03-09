@@ -164,6 +164,55 @@ def cleanup_uploaded_schemas(context: ContextType) -> None:
     context._uploaded_schema_ids = []
 
 
+# -- Assets (non-RDF uploads) --
+
+@given('asset from fixture "{fixture_path}" is not uploaded')
+def ensure_asset_not_uploaded(context: ContextType, fixture_path: str) -> None:
+    file_content = (FIXTURES_DIR / fixture_path).read_bytes()
+    sd_hash = hashlib.sha256(file_content).hexdigest()
+    resp = context.fc_server.delete_self_description(sd_hash)
+    assert resp.status_code in (200, 404), \
+        f"Unexpected cleanup response: {resp.status_code}, {resp.content}"
+
+
+@when('add asset from fixture "{fixture_path}" with content-type "{content_type}"')
+def add_asset_multipart(context: ContextType, fixture_path: str, content_type: str) -> None:
+    path = FIXTURES_DIR / fixture_path
+    file_content = path.read_bytes()
+    context.requests_response = context.fc_server.add_asset_multipart(
+        file_content=file_content,
+        content_type=content_type,
+        filename=path.name,
+    )
+
+
+@when('add asset from fixture "{fixture_path}" as raw binary')
+def add_asset_raw_binary(context: ContextType, fixture_path: str) -> None:
+    path = FIXTURES_DIR / fixture_path
+    file_content = path.read_bytes()
+    context.requests_response = context.fc_server.add_asset_raw(
+        file_content=file_content,
+        content_type="application/octet-stream",
+    )
+
+
+@then('response content-type is "{expected_type}"')
+def response_content_type_is(context: ContextType, expected_type: str) -> None:
+    body = context.requests_response.json()
+    actual = body.get("contentType")
+    assert actual == expected_type, \
+        f"Expected contentType '{expected_type}', got '{actual}' in {body}"
+
+
+@then('response has file size greater than {minimum:d}')
+def response_has_file_size_greater_than(context: ContextType, minimum: int) -> None:
+    body = context.requests_response.json()
+    file_size = body.get("fileSize")
+    assert file_size is not None, f"Response missing fileSize field: {body}"
+    assert file_size > minimum, \
+        f"Expected fileSize > {minimum}, got {file_size}"
+
+
 @when("request list of schemas")
 def request_list_schemas(context: ContextType) -> None:
     context.requests_response = context.fc_server.get_schemas()

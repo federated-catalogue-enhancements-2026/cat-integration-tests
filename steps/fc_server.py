@@ -52,6 +52,13 @@ def add_credential_from_fixture(context: ContextType, fixture_path: str) -> None
     context.requests_response = context.fc_server.add_asset(payload)
 
 
+@when('add credential from fixture "{fixture_path}" with content-type "{content_type}"')
+def add_credential_from_fixture_with_content_type(
+        context: ContextType, fixture_path: str, content_type: str) -> None:
+    payload = (FIXTURES_DIR / fixture_path).read_text()
+    context.requests_response = context.fc_server.add_asset_with_content_type(payload, content_type)
+
+
 @when('delete asset "{asset_hash}"')
 def delete_asset(context: ContextType, asset_hash: str) -> None:
     context.requests_response = context.fc_server.delete_asset(asset_hash)

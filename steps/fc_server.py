@@ -2,7 +2,7 @@ import hashlib
 from pathlib import Path
 
 import requests
-from behave import given, when, then
+from behave import given, when, then, use_step_matcher
 
 from eu.xfsc.bdd.core.server.keycloak import KeycloakServer, Token
 
@@ -46,10 +46,16 @@ def add_credential(context: ContextType) -> None:
     context.requests_response = context.fc_server.add_asset(context.text)
 
 
-@when('add credential from fixture "{fixture_path}"')
+use_step_matcher("re")
+
+# behave could not match this step correctly and reported a duplicatestep definition, we fix it with a regex
+@when(r'add credential from fixture "(?P<fixture_path>[^"]+)"')
 def add_credential_from_fixture(context: ContextType, fixture_path: str) -> None:
     payload = (FIXTURES_DIR / fixture_path).read_text()
     context.requests_response = context.fc_server.add_asset(payload)
+
+
+use_step_matcher("parse")
 
 
 @when('add credential from fixture "{fixture_path}" with content-type "{content_type}"')
@@ -77,10 +83,16 @@ def verify_credential(context: ContextType) -> None:
     context.requests_response = context.fc_server.verify(context.text)
 
 
-@when('verify credential from fixture "{fixture_path}"')
+use_step_matcher("re")
+
+
+@when(r'verify credential from fixture "(?P<fixture_path>[^"]+)"')
 def verify_credential_from_fixture(context: ContextType, fixture_path: str) -> None:
     payload = (FIXTURES_DIR / fixture_path).read_text()
     context.requests_response = context.fc_server.verify(payload)
+
+
+use_step_matcher("parse")
 
 
 @when('verify credential from fixture "{fixture_path}" skipping signatures')

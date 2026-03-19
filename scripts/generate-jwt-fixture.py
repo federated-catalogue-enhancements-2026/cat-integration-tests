@@ -91,36 +91,42 @@ def build_public_key_jwk(key: Ed25519PrivateKey, key_id: str) -> dict:
 
 
 def build_vc_jwt_payload(issuer_did: str) -> dict:
-    """ICAM v24.07 VC JWT: top-level claims, no 'vc' wrapper."""
+    """VC 2.0 JWT: credential properties nested under 'vc' claim.
+    Required by the danubetech JwtVerifiableCredentialV2 parser used server-side.
+    Uses plain schema.org types (no Gaia-X) to work with gaiaxTrustFrameworkEnabled=false."""
     return {
         "iss": issuer_did,
         "sub": "did:web:participant.example.com",
-        "@context": [
-            "https://www.w3.org/ns/credentials/v2",
-            "https://w3id.org/gaia-x/gx-trust-framework/v1",
-        ],
-        "type": ["VerifiableCredential", "gx:LegalParticipant"],
-        "id": "https://example.com/vc/jwt-bdd-signed-1",
-        "issuer": issuer_did,
-        "validFrom": "2026-01-01T00:00:00Z",
-        "credentialSubject": {
-            "id": "did:web:participant.example.com",
-            "@type": ["https://w3id.org/gaia-x/core#Participant"],
-            "https://w3id.org/gaia-x/core#legalName": [{"@value": "Example Corp"}],
+        "vc": {
+            "@context": ["https://www.w3.org/ns/credentials/v2"],
+            "type": ["VerifiableCredential"],
+            "id": "https://example.com/vc/jwt-bdd-signed-1",
+            "issuer": issuer_did,
+            "validFrom": "2026-01-01T00:00:00Z",
+            "credentialSubject": {
+                "id": "did:web:participant.example.com",
+                "https://schema.org/name": "Example Corp",
+            },
         },
     }
 
 
-def build_vp_jwt_payload(issuer_did: str, holder: str | None = None) -> dict:
-    """ICAM v24.07 VP JWT: top-level claims."""
+def build_vp_jwt_payload(issuer_did: str, embedded_vc_jwt: str, holder: str | None = None) -> dict:
+    """VC 2.0 VP JWT: presentation properties nested under 'vp' claim.
+    Required by the danubetech JwtVerifiablePresentationV2 parser used server-side.
+    Embeds a signed VC JWT as a compact string in verifiableCredential so the server
+    can verify inner VC signatures via JwtSignatureVerifier."""
     if holder is None:
         holder = issuer_did  # iss == holder (happy path)
     return {
         "iss": issuer_did,
         "holder": holder,
-        "@context": ["https://www.w3.org/ns/credentials/v2"],
-        "type": ["VerifiablePresentation"],
-        "id": "https://example.com/vp/jwt-bdd-signed-1",
+        "vp": {
+            "@context": ["https://www.w3.org/ns/credentials/v2"],
+            "type": ["VerifiablePresentation"],
+            "id": "https://example.com/vp/jwt-bdd-signed-1",
+            "verifiableCredential": [embedded_vc_jwt],
+        },
     }
 
 
@@ -185,8 +191,11 @@ def main() -> None:
     if args.type == "vc":
         payload = build_vc_jwt_payload(args.issuer)
     else:
+        # VP embeds a signed VC JWT so the server can verify inner VC signatures
+        vc_payload = build_vc_jwt_payload(args.issuer)
+        embedded_vc_jwt = sign_jwt(vc_payload, key, args.kid)
         holder = "did:web:other-participant.example.com" if args.holder_mismatch else None
-        payload = build_vp_jwt_payload(args.issuer, holder=holder)
+        payload = build_vp_jwt_payload(args.issuer, embedded_vc_jwt, holder=holder)
         if args.holder_mismatch:
             print(f"NOTE: holder mismatch fixture — iss={args.issuer}, holder={payload['holder']}")
 

@@ -1,38 +1,52 @@
 #!/usr/bin/env python3
 """
-Generate signed JWT VC/VP fixtures for BDD tests.
+Sign JSON-LD payloads as JWT fixtures for BDD tests.
 
-Produces:
-  - A compact JWT suitable for use in BDD fixture files (fixtures/vc20/valid/*.jwt)
-  - A JWK public key block ready to paste into docker/did-server/www/.well-known/did.json
+Reads a .jsonld file (the JWT claims set), wraps it with JWT headers, signs with
+Ed25519, and writes the compact JWT. The .jsonld file is the source of truth for
+the credential content — human-readable and easy to diff.
+
+For production credential generation, use gx-credential-helper + vc-jwt.io.
+This script is for BDD fixture signing only.
 
 Requirements:
   pip install PyJWT[crypto] cryptography
 
-Usage examples:
-  # Generate a new Ed25519 key + signed VC JWT
-  python3 scripts/generate-jwt-fixture.py vc
+Usage:
+  # Sign a Loire VC (auto-detects typ/cty from payload)
+  python3 scripts/generate-jwt-fixture.py --payload fixtures/loire/valid/participant.loire.jsonld
 
-  # Generate a signed VP JWT with a specific key file
-  python3 scripts/generate-jwt-fixture.py vp --key keys/jwt-signing.pem
+  # Sign with explicit output path
+  python3 scripts/generate-jwt-fixture.py --payload fixtures/loire/valid/participant.loire.jsonld \
+      --out fixtures/loire/valid/participant.loire.signed.jwt
 
-  # Specify output path
-  python3 scripts/generate-jwt-fixture.py vc --out fixtures/vc20/valid/participant.vc2.signed.jwt
+  # Sign a Loire VP with inner VC embedding (signs the inner VC first, injects into VP)
+  python3 scripts/generate-jwt-fixture.py --payload fixtures/loire/valid/participant-vp.loire.jsonld \
+      --embed-vc fixtures/loire/valid/participant.loire.jsonld
 
-  # VP JWT with intentional iss/holder mismatch (negative test fixture)
-  python3 scripts/generate-jwt-fixture.py vp --holder-mismatch --out fixtures/vc20/invalid/vp-iss-holder-mismatch.jwt
+  # Sign a danubetech-format VC (payload has "vc" wrapper claim)
+  python3 scripts/generate-jwt-fixture.py --payload fixtures/vc20/valid/participant.vc2.jsonld
 
-DID document update (after generating the key):
+  # Discovery mode: omit --payload, derive from --out (foo.signed.jwt → foo.jsonld)
+  python3 scripts/generate-jwt-fixture.py --out fixtures/loire/valid/participant.loire.signed.jwt
+
+  # Use existing key
+  python3 scripts/generate-jwt-fixture.py --payload fixtures/loire/valid/participant.loire.jsonld \
+      --key keys/jwt-signing.pem
+
+  # Override auto-detected headers
+  python3 scripts/generate-jwt-fixture.py --payload my-vc.jsonld --typ vc+jwt --cty vc
+
+DID document update (after generating a new key):
   1. Copy the printed "assertionMethod" block into docker/did-server/www/.well-known/did.json
-  2. Add the key ID to the "assertionMethod" array in the DID document
-  3. Run: docker compose down && docker compose up
-     (docker compose restart does NOT flush the FC server's Caffeine DID cache)
+  2. Add the key ID to the "assertionMethod" array
+  3. docker compose down && docker compose up
+     (restart does NOT flush the FC server's Caffeine DID cache)
 """
 
 import argparse
 import base64
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -50,8 +64,9 @@ except ImportError:
 
 ISSUER_DID = "did:web:did-server"
 KEY_ID = f"{ISSUER_DID}#jwt-key-1"
-FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
+
+# --- Key management ---
 
 def b64url_no_pad(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
@@ -78,7 +93,6 @@ def save_key_pem(key: Ed25519PrivateKey, path: Path) -> None:
 
 
 def build_public_key_jwk(key: Ed25519PrivateKey, key_id: str) -> dict:
-    """Build JWK dict for the public key (to paste into DID document)."""
     pub = key.public_key()
     raw = pub.public_bytes(Encoding.Raw, PublicFormat.Raw)
     return {
@@ -90,54 +104,102 @@ def build_public_key_jwk(key: Ed25519PrivateKey, key_id: str) -> dict:
     }
 
 
-def build_vc_jwt_payload(issuer_did: str) -> dict:
-    """VC 2.0 JWT: credential properties nested under 'vc' claim.
-    Required by the danubetech JwtVerifiableCredentialV2 parser used server-side.
-    Uses plain schema.org types (no Gaia-X) to work with gaiaxTrustFrameworkEnabled=false."""
-    return {
-        "iss": issuer_did,
-        "sub": "did:web:participant.example.com",
-        "vc": {
-            "@context": ["https://www.w3.org/ns/credentials/v2"],
-            "type": ["VerifiableCredential"],
-            "id": "https://example.com/vc/jwt-bdd-signed-1",
-            "issuer": issuer_did,
-            "validFrom": "2026-01-01T00:00:00Z",
-            "credentialSubject": {
-                "id": "did:web:participant.example.com",
-                "https://schema.org/name": "Example Corp",
-            },
-        },
-    }
+# --- Payload & header detection ---
+
+def detect_headers(payload: dict) -> tuple[str, str | None]:
+    """Auto-detect JWT typ/cty from payload structure.
+
+    Loire format: top-level @context, no vc/vp wrapper → vc+jwt/vc or vp+jwt/vp
+    Danubetech format: vc or vp wrapper claim → typ: JWT, no cty
+    """
+    has_vc_wrapper = "vc" in payload
+    has_vp_wrapper = "vp" in payload
+    has_top_level_context = "@context" in payload
+    has_verifiable_credential = "verifiableCredential" in payload
+
+    if has_vc_wrapper or has_vp_wrapper:
+        # Danubetech format
+        return "JWT", None
+
+    if has_top_level_context:
+        # Loire format
+        if has_verifiable_credential:
+            return "vp+jwt", "vp"
+        return "vc+jwt", "vc"
+
+    return "JWT", None
 
 
-def build_vp_jwt_payload(issuer_did: str, embedded_vc_jwt: str, holder: str | None = None) -> dict:
-    """VC 2.0 VP JWT: presentation properties nested under 'vp' claim.
-    Required by the danubetech JwtVerifiablePresentationV2 parser used server-side.
-    Embeds a signed VC JWT as a compact string in verifiableCredential so the server
-    can verify inner VC signatures via JwtSignatureVerifier."""
-    if holder is None:
-        holder = issuer_did  # iss == holder (happy path)
-    return {
-        "iss": issuer_did,
-        "holder": holder,
-        "vp": {
-            "@context": ["https://www.w3.org/ns/credentials/v2"],
-            "type": ["VerifiablePresentation"],
-            "id": "https://example.com/vp/jwt-bdd-signed-1",
-            "verifiableCredential": [embedded_vc_jwt],
-        },
-    }
+def sign_jwt(payload: dict, key: Ed25519PrivateKey, kid: str,
+             typ: str = "JWT", cty: str | None = None) -> str:
+    headers = {"kid": kid, "typ": typ}
+    if cty is not None:
+        headers["cty"] = cty
+    return pyjwt.encode(payload, key, algorithm="EdDSA", headers=headers)
 
 
-def sign_jwt(payload: dict, key: Ed25519PrivateKey, kid: str) -> str:
-    return pyjwt.encode(
-        payload,
-        key,
-        algorithm="EdDSA",
-        headers={"kid": kid, "typ": "JWT"},
-    )
+# --- Payload resolution ---
 
+def resolve_payload_path(args) -> Path:
+    """Resolve payload path from --payload or by discovery from --out."""
+    if args.payload:
+        return Path(args.payload)
+
+    if args.out:
+        # Discovery: foo.signed.jwt → foo.jsonld
+        out = Path(args.out)
+        stem = out.name
+        for suffix in [".signed.jwt", ".jwt"]:
+            if stem.endswith(suffix):
+                stem = stem[: -len(suffix)]
+                break
+        candidate = out.parent / f"{stem}.jsonld"
+        if candidate.exists():
+            print(f"Discovered payload: {candidate}")
+            return candidate
+        # Also try without the format qualifier (e.g., participant.loire.signed.jwt → participant.loire.jsonld)
+        print(f"Error: no --payload given and discovery failed (tried {candidate})", file=sys.stderr)
+        sys.exit(1)
+
+    print("Error: either --payload or --out is required", file=sys.stderr)
+    sys.exit(1)
+
+
+def load_payload(path: Path) -> dict:
+    text = path.read_text()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        print(f"Error: {path} is not valid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def resolve_output_path(args, payload_path: Path) -> Path | None:
+    """Resolve output path from --out or by derivation from payload path."""
+    if args.out:
+        return Path(args.out)
+
+    # Derive: foo.jsonld → foo.signed.jwt
+    stem = payload_path.stem  # e.g., "participant.loire"
+    return payload_path.parent / f"{stem}.signed.jwt"
+
+
+# --- VP inner VC embedding ---
+
+VC_JWT_PLACEHOLDER = "{{VC_JWT}}"
+
+
+def embed_inner_vc(vp_payload: dict, vc_jwt: str) -> dict:
+    """Replace {{VC_JWT}} placeholders in VP payload with the signed inner VC JWT."""
+    raw = json.dumps(vp_payload)
+    if VC_JWT_PLACEHOLDER not in raw:
+        print(f"Warning: no {VC_JWT_PLACEHOLDER} placeholder found in VP payload", file=sys.stderr)
+        return vp_payload
+    raw = raw.replace(VC_JWT_PLACEHOLDER, vc_jwt)
+    return json.loads(raw)
+
+
+# --- Output ---
 
 def print_did_document_snippet(jwk: dict, key_id: str) -> None:
     print("\n" + "=" * 60)
@@ -156,24 +218,24 @@ def print_did_document_snippet(jwk: dict, key_id: str) -> None:
     print("=" * 60 + "\n")
 
 
+# --- Main ---
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate signed JWT VC/VP test fixtures"
+        description="Sign JSON-LD payloads as JWT fixtures for BDD tests",
     )
-    parser.add_argument("type", choices=["vc", "vp"], help="Fixture type: vc or vp")
-    parser.add_argument("--key", help="Path to Ed25519 private key PEM (generates new key if omitted)")
+    parser.add_argument("--payload", help="JSON-LD file to use as JWT claims (discovered from --out if omitted)")
+    parser.add_argument("--out", help="Output .signed.jwt path (derived from --payload if omitted)")
+    parser.add_argument("--embed-vc", dest="embed_vc",
+                        help="(VP) JSON-LD file for inner VC — signed first, then injected via {{VC_JWT}} placeholder")
+    parser.add_argument("--typ", help="JWT typ header (auto-detected from payload if omitted)")
+    parser.add_argument("--cty", help="JWT cty header (auto-detected from payload if omitted)")
+    parser.add_argument("--key", help="Ed25519 private key PEM (generates new key if omitted)")
     parser.add_argument("--save-key", help="Save generated key to this PEM path")
-    parser.add_argument("--out", help="Output fixture path (prints to stdout if omitted)")
-    parser.add_argument(
-        "--holder-mismatch",
-        action="store_true",
-        help="(VP only) Set holder to a different DID than iss — creates negative test fixture",
-    )
-    parser.add_argument("--issuer", default=ISSUER_DID, help=f"Issuer DID (default: {ISSUER_DID})")
     parser.add_argument("--kid", default=KEY_ID, help=f"Key ID (default: {KEY_ID})")
     args = parser.parse_args()
 
-    # Load or generate key
+    # Key
     if args.key:
         key = load_key_from_pem(args.key)
         print(f"Loaded key: {args.key}")
@@ -185,42 +247,43 @@ def main() -> None:
         else:
             print("Tip: use --save-key keys/jwt-signing.pem to persist the key")
 
-    jwk = build_public_key_jwk(key, args.kid)
+    # Payload
+    payload_path = resolve_payload_path(args)
+    payload = load_payload(payload_path)
+    print(f"Payload: {payload_path}")
 
-    # Build payload
-    if args.type == "vc":
-        payload = build_vc_jwt_payload(args.issuer)
-    else:
-        # VP embeds a signed VC JWT so the server can verify inner VC signatures
-        vc_payload = build_vc_jwt_payload(args.issuer)
-        embedded_vc_jwt = sign_jwt(vc_payload, key, args.kid)
-        holder = "did:web:other-participant.example.com" if args.holder_mismatch else None
-        payload = build_vp_jwt_payload(args.issuer, embedded_vc_jwt, holder=holder)
-        if args.holder_mismatch:
-            print(f"NOTE: holder mismatch fixture — iss={args.issuer}, holder={payload['holder']}")
+    # Embed inner VC if VP
+    if args.embed_vc:
+        vc_payload_path = Path(args.embed_vc)
+        vc_payload = load_payload(vc_payload_path)
+        vc_typ, vc_cty = detect_headers(vc_payload)
+        vc_jwt = sign_jwt(vc_payload, key, args.kid, typ=vc_typ, cty=vc_cty)
+        payload = embed_inner_vc(payload, vc_jwt)
+        print(f"Embedded inner VC: {vc_payload_path} (typ={vc_typ}, cty={vc_cty})")
+
+    # Headers
+    auto_typ, auto_cty = detect_headers(payload)
+    typ = args.typ or auto_typ
+    cty = args.cty or auto_cty
+    print(f"Headers: typ={typ}, cty={cty or '(none)'}")
 
     # Sign
-    compact_jwt = sign_jwt(payload, key, args.kid)
+    compact_jwt = sign_jwt(payload, key, args.kid, typ=typ, cty=cty)
 
-    # Output fixture
-    if args.out:
-        out_path = Path(args.out)
+    # Output
+    out_path = resolve_output_path(args, payload_path)
+    if out_path:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(compact_jwt)
         print(f"Fixture written: {out_path}")
     else:
-        print("\n--- Compact JWT (paste into fixture file) ---")
+        print("\n--- Compact JWT ---")
         print(compact_jwt)
         print("---\n")
 
-    # Print DID document update instructions
+    # DID document snippet
+    jwk = build_public_key_jwk(key, args.kid)
     print_did_document_snippet(jwk, args.kid)
-
-    print("Next steps:")
-    print(f"  1. Add the assertionMethod block above to docker/did-server/www/.well-known/did.json")
-    print(f"  2. docker compose down && docker compose up")
-    print(f"  3. Move the @wip tag from the BDD scenarios to enable them:")
-    print(f"     features/08 JWT Signature Verification.feature")
 
 
 if __name__ == "__main__":

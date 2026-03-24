@@ -186,6 +186,18 @@ def _extract_schema_id_from_fixture(path: Path) -> str | None:
     return None
 
 
+def _extract_schema_id_from_conflict(resp: requests.Response) -> str | None:
+    """Extract schema ID from a 409 conflict error response."""
+    try:
+        msg = resp.json().get("message", "")
+        prefix = "A schema with id "
+        if msg.startswith(prefix):
+            return msg[len(prefix):msg.index(" already exists")]
+    except Exception:
+        pass
+    return None
+
+
 def _url_encode_schema_id(schema_id: str) -> str:
     return urllib.parse.quote(schema_id, safe="")
 
@@ -207,10 +219,12 @@ def upload_schema_from_fixture(context: ContextType, fixture_path: str) -> None:
     schema_id = _extract_schema_id_from_fixture(path)
 
     resp = context.fc_server.add_schema(payload, content_type=content_type)
-    if resp.status_code == 409 and schema_id:
-        encoded = _url_encode_schema_id(schema_id)
-        context.fc_server.delete_schema(encoded)
-        resp = context.fc_server.add_schema(payload, content_type=content_type)
+    if resp.status_code == 409:
+        conflict_id = schema_id or _extract_schema_id_from_conflict(resp)
+        if conflict_id:
+            encoded = _url_encode_schema_id(conflict_id)
+            context.fc_server.delete_schema(encoded)
+            resp = context.fc_server.add_schema(payload, content_type=content_type)
 
     assert resp.status_code in (200, 201), \
         f"Schema upload failed: {resp.status_code}, {resp.content}"
@@ -224,11 +238,13 @@ def upload_schema_from_fixture_with_ct(context: ContextType, fixture_path: str, 
     schema_id = _extract_schema_id_from_fixture(path)
 
     resp = context.fc_server.add_schema(payload, content_type=content_type)
-    if resp.status_code == 409 and schema_id:
-        # Already exists — delete and re-upload for a clean response
-        encoded = _url_encode_schema_id(schema_id)
-        context.fc_server.delete_schema(encoded)
-        resp = context.fc_server.add_schema(payload, content_type=content_type)
+    if resp.status_code == 409:
+        conflict_id = schema_id or _extract_schema_id_from_conflict(resp)
+        if conflict_id:
+            # Already exists — delete and re-upload for a clean response
+            encoded = _url_encode_schema_id(conflict_id)
+            context.fc_server.delete_schema(encoded)
+            resp = context.fc_server.add_schema(payload, content_type=content_type)
 
     assert resp.status_code in (200, 201), \
         f"Schema upload failed: {resp.status_code}, {resp.content}"

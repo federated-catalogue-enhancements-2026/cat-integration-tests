@@ -45,12 +45,9 @@ Feature: JWT Signature Verification
 
   @smoke
   Scenario: JWT with expired exp claim is rejected with 422
+    # Loire VC JWT signed with did:web:did-server#jwt-key-1, exp=1000000000 (2001-09-08).
     # exp check fires before DID resolution — VerificationException → 422.
-    # Inline JWT: alg=EdDSA, exp=1000000000 (2001-09-08, clearly past), dummy signature.
-    When verify credential
-      """
-      eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkaWQ6d2ViOmlzc3Vlci5leGFtcGxlLmNvbSIsImV4cCI6MTAwMDAwMDAwMH0.ZHVtbXlfc2lnbmF0dXJlX2Zvcl90ZXN0aW5nX29ubHk
-      """
+    When verify credential from fixture "vc20/invalid/participant-expired.vc2.jwt"
     Then get http 422:Unprocessable Entity code
 
   # --- Signature-skip path (@cfg.default) ---
@@ -59,7 +56,7 @@ Feature: JWT Signature Verification
   Scenario: JWT VC verify with signatures disabled returns 200
     # With verifyVCSignature=false and verifyVPSignature=false, the server skips
     # JwtSignatureVerifier — the dummy-signed fixture is accepted.
-    When verify credential from fixture "vc20/valid/participant.vc2.jwt" skipping signatures
+    When verify credential from fixture "loire/valid/participant.vc2.jwt" skipping signatures
     Then get http 200:Success code
 
   # --- Positive signature verification (@cfg.strict) ---
@@ -70,32 +67,27 @@ Feature: JWT Signature Verification
 
   @smoke @req.CAT-FR-GD-01 @cfg.strict
   Scenario: JWT VC with valid EdDSA signature verifies successfully
-    # Fixture signed with did:web:did-server#jwt-key-1 (Ed25519).
-    # DID document serves the matching public key in assertionMethod.
-    # TODO(gaia-x-loire): fixture uses plain VC 2.0 (no Gaia-X types); switch to a Loire-typed credential
-    #   once the ontology resolver handles Loire types in JWT-wrapped credentials.
-    When verify credential from fixture "vc20/valid/participant.vc2.signed.jwt"
+    # Loire VC JWT (typ=vc+jwt) signed with did:web:did-server#jwt-key-1 (Ed25519).
+    # gx:LegalPerson credential subject passes semantic validation.
+    When verify credential from fixture "loire/valid/participant.vc2.signed.jwt"
     Then get http 200:Success code
     And response has non-empty validatorDids
 
   @req.CAT-FR-GD-01 @cfg.strict
   Scenario: JWT VP with valid signature and matching iss/holder verifies successfully
-    # VP JWT where iss == holder == did:web:did-server — semantic + crypto both pass.
-    # TODO(gaia-x-loire): embedded VC is plain VC 2.0; switch to Loire-typed once ontology resolver supports it.
-    When verify credential from fixture "vc20/valid/participant.vp2.signed.jwt"
+    # Loire VP JWT (typ=vp+jwt) where iss == holder == did:web:did-server.
+    When verify credential from fixture "loire/valid/participant.vp2.signed.jwt"
     Then get http 200:Success code
     And response has non-empty validatorDids
 
   @cfg.strict
   Scenario: JWT with corrupted signature is rejected with 422
-    # bad-signature.vc2.jwt has iss=did:web:did-server (resolves) but a tampered signature.
-    # DID resolution succeeds; signature check fails → VerificationException → 422.
+    # Loire VC JWT with iss=did:web:did-server (resolves) but a tampered signature.
     When verify credential from fixture "vc20/invalid/bad-signature.vc2.jwt"
     Then get http 422:Unprocessable Entity code
 
   @cfg.strict
   Scenario: JWT VP with iss not matching holder is rejected with 422
-    # VP JWT where iss=did:web:did-server, holder=did:web:other-participant.example.com.
-    # Signature is valid; semantic iss/holder check fires → VerificationException → 422.
+    # Loire VP JWT where iss=did:web:did-server, holder=did:web:other-participant.example.com.
     When verify credential from fixture "vc20/invalid/vp-iss-holder-mismatch.jwt"
     Then get http 422:Unprocessable Entity code

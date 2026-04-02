@@ -6,7 +6,7 @@ Feature: VC 2.0 Credential Support
 
   # Default server config: verifyVCSignatures=false, verifyVPSignatures=false
   # VC 2.0 uses "validFrom" instead of "issuanceDate" and the v2 context URI.
-  # JWT detection is body-based (starts with "eyJ") — no special content-type required.
+  # Loire format: credential claims at top level, typ=vc+jwt (IANA), no vc/vp wrapper.
 
   Background:
     Given CAT Keycloak is up
@@ -15,45 +15,29 @@ Feature: VC 2.0 Credential Support
 
   @smoke @cfg.default
   Scenario: Upload a standalone VC 2.0 credential
-    # VC 2.0 uses "validFrom" and https://www.w3.org/ns/credentials/v2 context.
-    # With signature verification disabled, upload must succeed with 201.
-    Given credential from fixture "vc20/valid/participant.vc2.jsonld" is not uploaded
-    When add credential from fixture "vc20/valid/participant.vc2.jsonld"
+    # Loire JWT VC with gx:LegalPerson type. Signature not verified in default config.
+    Given credential from fixture "loire/valid/participant.vc2.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.vc2.jwt" with content-type "application/vc+jwt"
     Then get http 201:Created code
 
   @smoke @cfg.default
   Scenario: Upload a VC 2.0 credential wrapped in a Verifiable Presentation
-    # VP2 wraps a VC 2.0 credential — existing VP processing path handles this.
-    Given credential from fixture "vc20/valid/participant.vp2.jsonld" is not uploaded
-    When add credential from fixture "vc20/valid/participant.vp2.jsonld"
-    Then get http 201:Created code
-
-  @cfg.default
-  Scenario: Upload a JWT-wrapped VC 2.0 credential
-    # JWT credentials must be submitted with Content-Type: application/vc+ld+json+jwt.
-    # Sending a JWT body with a JSON-LD content-type (e.g. application/vc+ld+json) is rejected with 400.
-    # "vc" claim contains the VC 2.0 object; signature not verified in default config.
-    Given credential from fixture "vc20/valid/participant.vc2.jwt" is not uploaded
-    When add credential from fixture "vc20/valid/participant.vc2.jwt" with content-type "application/vc+ld+json+jwt"
+    # JSON-LD VP wrapping an inline VC 2.0 credential with gx:LegalPerson type.
+    Given credential from fixture "loire/valid/participant.vp2.jsonld" is not uploaded
+    When add credential from fixture "loire/valid/participant.vp2.jsonld"
     Then get http 201:Created code
 
   @cfg.default
   Scenario: JWT body submitted with JSON-LD content-type is rejected
-    When add credential from fixture "vc20/valid/participant.vc2.jwt" with content-type "application/vc+ld+json"
+    # application/vc+ld+json expects JSON-LD, not a JWT compact serialization.
+    When add credential from fixture "loire/valid/participant.vc2.jwt" with content-type "application/vc+ld+json"
     Then get http 400:Bad Request code
 
   @cfg.default
   Scenario: JSON-LD body submitted with JWT content-type is rejected
-    When add credential from fixture "vc20/valid/participant.vc2.jsonld" with content-type "application/vc+ld+json+jwt"
+    # application/vc+jwt expects a JWT compact serialization, not a JSON-LD document.
+    When add credential from fixture "loire/valid/participant.vp2.jsonld" with content-type "application/vc+jwt"
     Then get http 400:Bad Request code
-
-  @cfg.default
-  Scenario: Upload a JWT-wrapped credential with VP JWT content-type is accepted
-    # Covers AC 2: application/vp+ld+json+jwt positive path.
-    # TODO: replace fixture with a proper VP JWT once participant.vp2.jwt exists.
-    Given credential from fixture "vc20/valid/participant.vc2.jwt" is not uploaded
-    When add credential from fixture "vc20/valid/participant.vc2.jwt" with content-type "application/vp+ld+json+jwt"
-    Then get http 201:Created code
 
   @cfg.default
   Scenario: VC 2.0 credential with expired validUntil is rejected

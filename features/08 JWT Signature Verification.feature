@@ -80,6 +80,14 @@ Feature: JWT Signature Verification
     Then get http 200:Success code
     And response has non-empty validatorDids
 
+  @req.CAT-FR-GD-01 @cfg.strict
+  Scenario: JWT VP with EnvelopedVerifiableCredential and valid signature verifies successfully
+    # Loire VP JWT (typ=vp+jwt) where the inner VC is wrapped as EnvelopedVerifiableCredential
+    # with a data:application/vc+jwt URI, signed with did:web:did-server#jwt-key-1 (Ed25519).
+    When verify credential from fixture "loire/valid/participant-vp.loire.signed.jwt"
+    Then get http 200:Success code
+    And response has non-empty validatorDids
+
   @cfg.strict
   Scenario: JWT with corrupted signature is rejected with 422
     # Loire VC JWT with iss=did:web:did-server (resolves) but a tampered signature.

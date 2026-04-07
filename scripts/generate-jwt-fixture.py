@@ -37,6 +37,21 @@ Usage:
   # Override auto-detected headers
   python3 scripts/generate-jwt-fixture.py --payload my-vc.jsonld --typ vc+jwt --cty vc
 
+  # Produce an EnvelopedVerifiableCredential JSON-LD fixture (Gaia-X ICAM 24.07):
+  # Signs the VC JWT and wraps it in an EVC envelope (data:application/vc+ld+json+jwt,<JWT>).
+  python3 scripts/generate-jwt-fixture.py --payload fixtures/loire/valid/participant.loire.jsonld \
+      --key keys/jwt-signing.pem \
+      --wrap-as evc \
+      --out fixtures/enveloped/valid/participant.evc.jsonld
+
+  # Produce an EnvelopedVerifiablePresentation JSON-LD fixture (Gaia-X ICAM 24.07):
+  # Signs the inner VC, embeds it in the VP, signs the VP JWT, wraps it in an EVP envelope.
+  python3 scripts/generate-jwt-fixture.py --payload fixtures/loire/valid/participant-vp.loire.jsonld \
+      --embed-vc fixtures/loire/valid/participant.loire.jsonld \
+      --key keys/jwt-signing.pem \
+      --wrap-as evp \
+      --out fixtures/enveloped/valid/participant.evp.jsonld
+
 DID document update (after generating a new key):
   1. Copy the printed "assertionMethod" block into docker/did-server/www/.well-known/did.json
   2. Add the key ID to the "assertionMethod" array
@@ -184,6 +199,29 @@ def resolve_output_path(args, payload_path: Path) -> Path | None:
     return payload_path.parent / f"{stem}.signed.jwt"
 
 
+# --- Envelope wrappers (Gaia-X ICAM 24.07) ---
+
+EVC_ENVELOPE = {
+    "@context": "https://www.w3.org/ns/credentials/v2",
+    "id": "data:application/vc+ld+json+jwt,{jwt}",
+    "type": "EnvelopedVerifiableCredential",
+}
+
+EVP_ENVELOPE = {
+    "@context": "https://www.w3.org/ns/credentials/v2",
+    "id": "data:application/vp+ld+jwt,{jwt}",
+    "type": "EnvelopedVerifiablePresentation",
+}
+
+
+def wrap_as_envelope(jwt_compact: str, wrap_as: str) -> str:
+    """Produce an EVC or EVP JSON-LD document embedding the given compact JWT."""
+    template = EVC_ENVELOPE if wrap_as == "evc" else EVP_ENVELOPE
+    envelope = {k: v.format(jwt=jwt_compact) if isinstance(v, str) else v
+                for k, v in template.items()}
+    return json.dumps(envelope, indent=2) + "\n"
+
+
 # --- VP inner VC embedding ---
 
 VC_JWT_PLACEHOLDER = "{{VC_JWT}}"
@@ -233,6 +271,8 @@ def main() -> None:
     parser.add_argument("--key", help="Ed25519 private key PEM (generates new key if omitted)")
     parser.add_argument("--save-key", help="Save generated key to this PEM path")
     parser.add_argument("--kid", default=KEY_ID, help=f"Key ID (default: {KEY_ID})")
+    parser.add_argument("--wrap-as", choices=["evc", "evp"], dest="wrap_as",
+                        help="Wrap the signed JWT in an EVC or EVP JSON-LD envelope (writes .jsonld)")
     args = parser.parse_args()
 
     # Key
@@ -271,15 +311,22 @@ def main() -> None:
     compact_jwt = sign_jwt(payload, key, args.kid, typ=typ, cty=cty)
 
     # Output
-    out_path = resolve_output_path(args, payload_path)
-    if out_path:
+    if args.wrap_as:
+        envelope_json = wrap_as_envelope(compact_jwt, args.wrap_as)
+        out_path = Path(args.out) if args.out else payload_path.parent / f"{payload_path.stem}.{args.wrap_as}.jsonld"
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(compact_jwt)
-        print(f"Fixture written: {out_path}")
+        out_path.write_text(envelope_json)
+        print(f"Envelope ({args.wrap_as.upper()}) written: {out_path}")
     else:
-        print("\n--- Compact JWT ---")
-        print(compact_jwt)
-        print("---\n")
+        out_path = resolve_output_path(args, payload_path)
+        if out_path:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(compact_jwt)
+            print(f"Fixture written: {out_path}")
+        else:
+            print("\n--- Compact JWT ---")
+            print(compact_jwt)
+            print("---\n")
 
     # DID document snippet
     jwk = build_public_key_jwk(key, args.kid)

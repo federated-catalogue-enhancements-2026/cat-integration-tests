@@ -13,7 +13,7 @@
   "validUntil": "2001-09-09T01:46:40Z",
   "credentialSubject": {
     "id": "did:web:participant.example.com",
-    "@type": "https://w3id.org/gaia-x/2511#LegalPerson",
-    "https://w3id.org/gaia-x/2511#legalName": [{"@value": "Expired Corp"}]
+    "@type": "gx:LegalPerson",
+    "gx:legalName": [{"@value": "Expired Corp"}]
   }
 }

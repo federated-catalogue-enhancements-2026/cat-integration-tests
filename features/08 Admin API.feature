@@ -1,52 +1,13 @@
 @domain.admin @req.CAT-FR-AU-01
 Feature: Admin API — Runtime Configuration
   As a catalogue administrator
-  I want to control asset type restriction, schema validation, and trust framework toggles at runtime
+  I want to control schema validation and trust framework toggles at runtime
   So that the catalogue enforces the correct upload and verification policies without a restart
 
   Background:
     Given CAT Keycloak is up
       And saved Keycloak token
       And Federated Catalogue Server is up
-
-  # ---------------------------------------------------------------------------
-  # Asset Type Restriction
-  # ---------------------------------------------------------------------------
-
-  @smoke @cfg.default
-  Scenario: Asset type restriction disabled — any credential type accepted
-    # With restriction off, a VerifiablePresentation credential uploads without type filtering.
-    Given asset type restriction is disabled
-      And credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
-    When add credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld"
-    Then get http 201:Created code
-
-  @baseline @cfg.default
-  Scenario: Asset type restriction enabled — matching type accepted
-    # VerifiablePresentation is in the allowlist → upload succeeds.
-    Given asset type restriction is enabled with allowed types "VerifiablePresentation"
-      And credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
-    When add credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld"
-    Then get http 201:Created code
-      And asset type restriction is reset to defaults
-
-  @baseline @cfg.default
-  Scenario: Asset type restriction enabled — non-matching type rejected
-    # Allowlist contains only "SomeOtherType"; VerifiablePresentation is not allowed → 400.
-    Given asset type restriction is enabled with allowed types "SomeOtherType"
-      And credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
-    When add credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld"
-    Then get http 400:Bad Request code
-      And asset type restriction is reset to defaults
-
-  @baseline @cfg.default
-  Scenario: Asset type restriction enabled but empty — all uploads blocked
-    # Restriction on with empty allowlist → every upload is rejected.
-    Given asset type restriction is enabled with allowed types ""
-      And credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
-    When add credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld"
-    Then get http 400:Bad Request code
-      And asset type restriction is reset to defaults
 
   # ---------------------------------------------------------------------------
   # Schema Validation Toggle
@@ -99,27 +60,6 @@ Feature: Admin API — Runtime Configuration
     Given Gaia-X trust framework is enabled
     When add credential from fixture "valid/default-only/gaiax-participant-legacy-type.vp.signed.jsonld"
     Then get http 422:Unprocessable Entity code
-
-  @baseline @cfg.strict @cfg.test-sig
-  Scenario: Type restriction and SHACL active simultaneously — SHACL fires before type gate
-    # Both restrictions active. SHACL rejects first (422) even when type restriction is set to block.
-    # After relaxing type restriction to match the credential, SHACL still fires → 422.
-    # Disabling SHACL with a matching type restriction → type gate blocks → 400.
-    Given asset type restriction is disabled
-      And SHACL schema module is enabled
-      And uploaded schemas are cleaned up
-      And schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded
-      And SHACL schema module is enabled
-      And asset type restriction is enabled with allowed types "SomeOtherType"
-      And credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.signed.jsonld" is not uploaded
-    When add credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.signed.jsonld"
-    Then get http 422:Unprocessable Entity code
-    Given SHACL schema module is disabled
-    When add credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.signed.jsonld"
-    Then get http 400:Bad Request code
-      And asset type restriction is reset to defaults
-      And SHACL schema module is re-enabled
-      And uploaded schemas are cleaned up
 
   # ---------------------------------------------------------------------------
   # Admin Stats

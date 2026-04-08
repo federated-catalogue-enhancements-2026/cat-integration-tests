@@ -1,8 +1,7 @@
 """
 Step definitions for Admin API scenarios (CAT-FR-AU-01).
 
-Covers: asset type restriction, schema validation module toggles,
-trust framework enabled toggle, and admin stats.
+Covers: schema validation module toggles, trust framework enabled toggle, and admin stats.
 """
 import requests
 from behave import given, then, when
@@ -16,39 +15,6 @@ SHACL_MODULE_TYPE = "SHACL"
 class ContextType:
     fc_server: Server
     requests_response: requests.Response
-
-
-# ---------------------------------------------------------------------------
-# Asset Type Restriction
-# ---------------------------------------------------------------------------
-
-@given("asset type restriction is disabled")
-def set_asset_type_restriction_disabled(context: ContextType) -> None:
-    resp = context.fc_server.set_asset_type_config(enabled=False, allowed_types=[])
-    assert resp.status_code == 200, \
-        f"Failed to disable asset type restriction: {resp.status_code} {resp.text}"
-
-
-@given('asset type restriction is enabled with allowed types ""')
-def set_asset_type_restriction_enabled_empty(context: ContextType) -> None:
-    resp = context.fc_server.set_asset_type_config(enabled=True, allowed_types=[])
-    assert resp.status_code == 200, \
-        f"Failed to enable asset type restriction: {resp.status_code} {resp.text}"
-
-
-@given('asset type restriction is enabled with allowed types "{types}"')
-def set_asset_type_restriction_enabled(context: ContextType, types: str) -> None:
-    allowed = [t.strip() for t in types.split(",") if t.strip()]
-    resp = context.fc_server.set_asset_type_config(enabled=True, allowed_types=allowed)
-    assert resp.status_code == 200, \
-        f"Failed to enable asset type restriction: {resp.status_code} {resp.text}"
-
-
-@then("asset type restriction is reset to defaults")
-def reset_asset_type_restriction(context: ContextType) -> None:
-    resp = context.fc_server.set_asset_type_config(enabled=False, allowed_types=[])
-    assert resp.status_code == 200, \
-        f"Failed to reset asset type restriction: {resp.status_code} {resp.text}"
 
 
 # ---------------------------------------------------------------------------

@@ -17,10 +17,7 @@ Use **two configurations** — default and strict — as an interim strategy. A 
 | Config | Compose command | Behaviour |
 |---|---|---|
 | **Default** | `docker compose up` | Semantics only — Gaia-X off, schema off, signatures off |
-| **Strict** | `./dev.sh strict` | Schema validation + signatures on; Gaia-X off pending Loire compatibility |
-
-Note: Gaia-X Trust Framework (`gaiaxTrustFrameworkEnabled`) is disabled in strict pending Loire
-ontology support — see `TODO(gaia-x-loire)` comment in `docker-compose.strict.yml`.
+| **Strict** | `./dev.sh strict` | Schema validation + signatures on; Gaia-X Trust Framework on |
 
 ### Tagging
 
@@ -54,8 +51,7 @@ make run_cat_bdd_dev MODE=strict
 services:
   server:
     environment:
-      # TODO(gaia-x-loire): flip to "true" once Loire ontology-based type resolution works
-      FEDERATED_CATALOGUE_VERIFICATION_TRUST_FRAMEWORK_GAIAX_ENABLED: "false"
+      FEDERATED_CATALOGUE_VERIFICATION_TRUST_FRAMEWORK_GAIAX_ENABLED: "true"
       FEDERATED_CATALOGUE_VERIFICATION_SCHEMA: "true"
       FEDERATED_CATALOGUE_VERIFICATION_VP_SIGNATURE: "true"
       FEDERATED_CATALOGUE_VERIFICATION_VC_SIGNATURE: "true"

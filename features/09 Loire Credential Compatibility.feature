@@ -64,14 +64,14 @@ Feature: Loire Credential Compatibility
     When add credential from fixture "enveloped/valid/participant.evp.jsonld" with content-type "application/vp+ld+json"
     Then get http 201:Created code
 
-  @req.CAT-FR-GD-01 @cfg.strict @wip
+  @req.CAT-FR-GD-01 @cfg.strict
   Scenario: Verify an EnvelopedVerifiableCredential with valid signature
     # EVC submitted to /verification — server extracts and verifies the embedded Loire VC JWT.
     When verify credential from fixture "enveloped/valid/participant.evc.jsonld"
     Then get http 200:Success code
     And response has non-empty validatorDids
 
-  @req.CAT-FR-GD-01 @cfg.strict @wip
+  @req.CAT-FR-GD-01 @cfg.strict
   Scenario: Verify an EnvelopedVerifiablePresentation with valid signature
     # EVP submitted to /verification — server extracts and verifies the embedded Loire VP JWT.
     When verify credential from fixture "enveloped/valid/participant.evp.jsonld"
@@ -112,7 +112,7 @@ Feature: Loire Credential Compatibility
     Then get http 200:Success code
     And response has non-empty validatorDids
 
-  @req.CAT-FR-GD-01 @cfg.strict @wip
+  @req.CAT-FR-GD-01 @cfg.strict
   Scenario: Verify a DigitalServiceOffering credential with valid signature
     When verify credential from fixture "loire/valid/digital-service-offering.loire.signed.jwt"
     Then get http 200:Success code

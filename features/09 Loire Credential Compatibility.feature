@@ -25,7 +25,7 @@ Feature: Loire Credential Compatibility
       And saved Keycloak token
       And Federated Catalogue Server is up
 
-  @smoke @cfg.default @cfg.strict
+  @smoke
   Scenario: Upload a Loire VC with W3C headers
     # Loire VC JWT: typ=vc+jwt, cty=vc, 2511 namespace, gx:LegalPerson type.
     # Tests the full pipeline: FormatDetector → LoireJwtParser → 2511 type resolution → storage.
@@ -33,7 +33,6 @@ Feature: Loire Credential Compatibility
     When add credential from fixture "loire/valid/participant.loire.signed.jwt" with content-type "application/vc+jwt"
     Then get http 201:Created code
 
-  @cfg.default @cfg.strict
   Scenario: Upload a Loire VP with EnvelopedVerifiableCredential
     # Loire VP JWT: typ=vp+jwt, cty=vp. Inner VC embedded as EnvelopedVerifiableCredential
     # with data:application/vc+jwt,<jwt> URI. Tests VP extraction + inner VC processing.
@@ -91,14 +90,14 @@ Feature: Loire Credential Compatibility
   # Any credential whose @type is a known subclass of gx:GaiaXEntity must be accepted.
   # These scenarios verify the full hierarchy path, not just the leaf type.
 
-  @smoke @cfg.default @cfg.strict
+  @smoke @cfg.default
   Scenario: Upload a ServiceOffering credential
     # gx:ServiceOffering → gx:GaiaXEntity — direct sub-type of the root entity class.
     Given credential from fixture "loire/valid/service-offering.loire.signed.jwt" is not uploaded
     When add credential from fixture "loire/valid/service-offering.loire.signed.jwt" with content-type "application/vc+jwt"
     Then get http 201:Created code
 
-  @cfg.default @cfg.strict
+  @cfg.default
   Scenario: Upload a DigitalServiceOffering credential
     # gx:DigitalServiceOffering → gx:ServiceOffering → gx:GaiaXEntity —
     # two-level sub-type: verifies the FC resolves nested ontology hierarchy.

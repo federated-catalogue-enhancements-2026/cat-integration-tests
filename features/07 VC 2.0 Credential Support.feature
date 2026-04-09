@@ -30,12 +30,14 @@ Feature: VC 2.0 Credential Support
   @cfg.default
   Scenario: JWT body submitted with JSON-LD content-type is rejected
     # application/vc+ld+json expects JSON-LD, not a JWT compact serialization.
+    Given credential from fixture "loire/valid/participant.vc2.jwt" is not uploaded
     When add credential from fixture "loire/valid/participant.vc2.jwt" with content-type "application/vc+ld+json"
     Then get http 400:Bad Request code
 
   @cfg.default
   Scenario: JSON-LD body submitted with JWT content-type is rejected
     # application/vc+jwt expects a JWT compact serialization, not a JSON-LD document.
+    Given credential from fixture "loire/valid/participant.vp2.jsonld" is not uploaded
     When add credential from fixture "loire/valid/participant.vp2.jsonld" with content-type "application/vc+jwt"
     Then get http 400:Bad Request code
 

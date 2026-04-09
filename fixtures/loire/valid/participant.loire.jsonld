@@ -13,6 +13,16 @@
   "credentialSubject": {
     "id": "did:web:participant.example.com",
     "@type": "gx:LegalPerson",
-    "gx:legalName": [{"@value": "Example Corp"}]
+    "gx:registrationNumber": {
+      "@type": "gx:RegistrationNumber"
+    },
+    "gx:headquartersAddress": {
+      "@type": "gx:Address",
+      "gx:countryCode": "DE"
+    },
+    "gx:legalAddress": {
+      "@type": "gx:Address",
+      "gx:countryCode": "DE"
+    }
   }
 }

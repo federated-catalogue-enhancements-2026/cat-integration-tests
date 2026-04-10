@@ -32,7 +32,25 @@ def check_fc_server_up(context: ContextType) -> None:
 
 # -- Assets (credentials) --
 
+####### Regex based matching for parser-ambiguous step definitions ######
+use_step_matcher("re")
+
+# behave could not match this step correctly and reported a duplicatestep definition, we fix it with a regex
+@when(r'add credential from fixture "(?P<fixture_path>[^"]+)"')
+def add_credential_from_fixture(context: ContextType, fixture_path: str) -> None:
+    payload = (FIXTURES_DIR / fixture_path).read_text()
+    context.requests_response = context.fc_server.add_asset(payload)
+
+@when(r'verify credential from fixture "(?P<fixture_path>[^"]+)"')
+def verify_credential_from_fixture(context: ContextType, fixture_path: str) -> None:
+    payload = (FIXTURES_DIR / fixture_path).read_text()
+    context.requests_response = context.fc_server.verify(payload)
+
+
+use_step_matcher("parse")
+
 @given('credential from fixture "{fixture_path}" is not uploaded')
+@then('credential from fixture "{fixture_path}" is not uploaded')
 def ensure_credential_not_uploaded(context: ContextType, fixture_path: str) -> None:
     payload = (FIXTURES_DIR / fixture_path).read_text()
     asset_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -51,24 +69,51 @@ def add_credential(context: ContextType) -> None:
     assert context.text, "Step requires docstring with credential payload"
     context.requests_response = context.fc_server.add_asset(context.text)
 
-
-use_step_matcher("re")
-
-# behave could not match this step correctly and reported a duplicatestep definition, we fix it with a regex
-@when(r'add credential from fixture "(?P<fixture_path>[^"]+)"')
-def add_credential_from_fixture(context: ContextType, fixture_path: str) -> None:
-    payload = (FIXTURES_DIR / fixture_path).read_text()
-    context.requests_response = context.fc_server.add_asset(payload)
-
-
-use_step_matcher("parse")
-
-
 @when('add credential from fixture "{fixture_path}" with content-type "{content_type}"')
 def add_credential_from_fixture_with_content_type(
         context: ContextType, fixture_path: str, content_type: str) -> None:
     payload = (FIXTURES_DIR / fixture_path).read_text()
     context.requests_response = context.fc_server.add_asset_with_content_type(payload, content_type)
+
+
+@then('save asset id from last response')
+def save_asset_id_from_last_response(context: ContextType) -> None:
+    response_json = context.requests_response.json()
+    asset_id = response_json.get("id")
+    assert asset_id, f"Last response does not contain an 'id' field: {response_json}"
+    context.last_asset_id = asset_id
+
+
+@when('update saved asset with fixture "{fixture_path}"')
+def update_saved_asset_from_fixture(context: ContextType, fixture_path: str) -> None:
+    assert hasattr(context, "last_asset_id"), "No saved asset id — call 'save asset id from last response' first"
+    payload = (FIXTURES_DIR / fixture_path).read_text()
+    context.requests_response = context.fc_server.update_asset(context.last_asset_id, payload)
+
+
+@when('get saved asset')
+def get_saved_asset(context: ContextType) -> None:
+    assert hasattr(context, "last_asset_id"), "No saved asset id — call 'save asset id from last response' first"
+    context.requests_response = context.fc_server.get_asset(context.last_asset_id)
+
+
+@when('get saved asset at version {version:d}')
+def get_saved_asset_at_version(context: ContextType, version: int) -> None:
+    assert hasattr(context, "last_asset_id"), "No saved asset id — call 'save asset id from last response' first"
+    context.requests_response = context.fc_server.get_asset(context.last_asset_id, version=version)
+
+
+@when('get saved asset versions')
+def get_saved_asset_versions(context: ContextType) -> None:
+    assert hasattr(context, "last_asset_id"), "No saved asset id — call 'save asset id from last response' first"
+    context.requests_response = context.fc_server.get_asset_versions(context.last_asset_id)
+
+
+@then('response has {expected:d} total versions')
+def response_has_total_versions(context: ContextType, expected: int) -> None:
+    body = context.requests_response.json()
+    total = body.get("total")
+    assert total == expected, f"Expected total={expected}, got {total} in {body}"
 
 
 @when('get asset by id "{asset_id}"')
@@ -101,18 +146,6 @@ def revoke_asset(context: ContextType, asset_hash: str) -> None:
 def verify_credential(context: ContextType) -> None:
     assert context.text, "Step requires docstring with credential payload"
     context.requests_response = context.fc_server.verify(context.text)
-
-
-use_step_matcher("re")
-
-
-@when(r'verify credential from fixture "(?P<fixture_path>[^"]+)"')
-def verify_credential_from_fixture(context: ContextType, fixture_path: str) -> None:
-    payload = (FIXTURES_DIR / fixture_path).read_text()
-    context.requests_response = context.fc_server.verify(payload)
-
-
-use_step_matcher("parse")
 
 
 @when('verify credential from fixture "{fixture_path}" skipping signatures')
@@ -187,12 +220,15 @@ def _extract_schema_id_from_fixture(path: Path) -> str | None:
 
 
 def _extract_schema_id_from_conflict(resp: requests.Response) -> str | None:
-    """Extract schema ID from a 409 conflict error response."""
+    """Extract schema ID from a 409 conflict response body (server-generated hash ID)."""
     try:
-        msg = resp.json().get("message", "")
-        prefix = "A schema with id "
-        if msg.startswith(prefix):
-            return msg[len(prefix):msg.index(" already exists")]
+        body = resp.json()
+        msg = body.get("message", "")
+        # e.g. "A schema with id <hash> already exists."
+        if "schema with id" in msg and "already exists" in msg:
+            parts = msg.split()
+            idx = parts.index("id")
+            return parts[idx + 1]
     except Exception:
         pass
     return None
@@ -222,8 +258,7 @@ def upload_schema_from_fixture(context: ContextType, fixture_path: str) -> None:
     if resp.status_code == 409:
         conflict_id = schema_id or _extract_schema_id_from_conflict(resp)
         if conflict_id:
-            encoded = _url_encode_schema_id(conflict_id)
-            context.fc_server.delete_schema(encoded)
+            context.fc_server.delete_schema(_url_encode_schema_id(conflict_id))
             resp = context.fc_server.add_schema(payload, content_type=content_type)
 
     assert resp.status_code in (200, 201), \
@@ -289,9 +324,27 @@ def upload_schema_with_content_type(context: ContextType, fixture_path: str, con
 @when("get schema by response id")
 def get_schema_by_response_id(context: ContextType) -> None:
     schema_id = _extract_schema_id_from_response(context.requests_response)
-    assert schema_id, f"No schema ID in response: {context.requests_response.text[:200]}"
+    assert schema_id, f"No schema ID in response: {context.requests_response.text}"
     encoded = _url_encode_schema_id(schema_id)
     context.requests_response = context.fc_server.get_schema(encoded)
+
+
+@when("get schema by response id at version {version:d}")
+def get_schema_by_response_id_at_version(context: ContextType, version: int) -> None:
+    schema_id = _extract_schema_id_from_response(context.requests_response)
+    assert schema_id, f"No schema ID in response: {context.requests_response.text}"
+    encoded = _url_encode_schema_id(schema_id)
+    context.requests_response = context.fc_server.get_schema(encoded, version=version)
+
+
+@when('update schema from fixture "{fixture_path}" with content-type "{content_type}"')
+def update_schema_with_content_type(context: ContextType, fixture_path: str, content_type: str) -> None:
+    path = FIXTURES_DIR / fixture_path
+    payload = path.read_text()
+    schema_id = _extract_schema_id_from_fixture(path)
+    assert schema_id, f"Could not extract schema ID from fixture: {fixture_path}"
+    encoded = _url_encode_schema_id(schema_id)
+    context.requests_response = context.fc_server.update_schema(encoded, payload, content_type=content_type)
 
 
 @when("delete schema by response id")

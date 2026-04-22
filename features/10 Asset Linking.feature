@@ -1,4 +1,4 @@
-@domain.asset @req.CAT-FR-SF-03
+@domain.asset @req.CAT-FR-SF-03 @cfg.default
 Feature: Asset Linking (Machine-Readable to Human-Readable)
   As an authorized user of the Federated Catalogue
   I want to link a human-readable representation to a machine-readable asset
@@ -9,7 +9,6 @@ Feature: Asset Linking (Machine-Readable to Human-Readable)
       And saved Keycloak token
       And Federated Catalogue Server is up
 
-  @cfg.default
   Scenario: SRS verification - upload MR asset, link HR representation, verify bidirectional references
     # SRS CAT-FR-SF-03 verification:
     # 1. Upload a machine-readable asset.
@@ -33,8 +32,7 @@ Feature: Asset Linking (Machine-Readable to Human-Readable)
     Then credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
      And asset from fixture "valid/non-rdf/sample.pdf" is not uploaded
 
-  @cfg.default
-  Scenario: GET /assets/{id}/human-readable returns 404 when no human-readable representation is linked
+  Scenario: Requesting human-readable representation for asset without one returns not found
     Given credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
     When add credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld"
     Then get http 201:Created code

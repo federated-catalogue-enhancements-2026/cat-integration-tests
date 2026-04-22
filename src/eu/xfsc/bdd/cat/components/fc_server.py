@@ -145,19 +145,19 @@ class Server(BaseServiceKeycloak):
             timeout=CONNECT_TIMEOUT_IN_SECONDS,
         )
 
-    def get_human_readable(self, mr_id: str) -> requests.Response:
+    def get_human_readable(self, machine_readable_asset_id: str) -> requests.Response:
         """GET /assets/{id}/human-readable"""
         self._update_header()
         return self.http.get(
-            url=f"{self.host}{self.ASSET_PATH}/{quote(mr_id, safe='')}/human-readable",
+            url=f"{self.host}{self.ASSET_PATH}/{quote(machine_readable_asset_id, safe='')}/human-readable",
             timeout=CONNECT_TIMEOUT_IN_SECONDS,
         )
 
-    def get_machine_readable(self, hr_id: str) -> requests.Response:
+    def get_machine_readable(self, human_readable_asset_id: str) -> requests.Response:
         """GET /assets/{id}/machine-readable"""
         self._update_header()
         return self.http.get(
-            url=f"{self.host}{self.ASSET_PATH}/{quote(hr_id, safe='')}/machine-readable",
+            url=f"{self.host}{self.ASSET_PATH}/{quote(human_readable_asset_id, safe='')}/machine-readable",
             timeout=CONNECT_TIMEOUT_IN_SECONDS,
         )
 

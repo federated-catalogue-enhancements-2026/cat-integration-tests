@@ -1,0 +1,218 @@
+@domain.validation @req.CAT-FR-CO-05
+Feature: On-Demand Asset Validation
+  As a user of the Federated Catalogue
+  I want to validate stored assets against stored schemas
+  So that I can check conformance at any time
+
+  Background:
+    Given CAT Keycloak is up
+      And saved Keycloak token
+      And Federated Catalogue Server is up
+
+  @smoke
+  Scenario: Validate Loire JWT participant against SHACL shape — conforming
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Then save schema id from last response
+    Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response conforms to schema
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate Loire JWT participant against all SHACL shapes — result returned
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+      And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    When validate saved asset against all schemas
+    Then get http 200:Success code
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate credential JSON-LD against SHACL shape — conforming
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Then save schema id from last response
+    Given credential from fixture "loire/valid/participant.loire.jsonld" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.jsonld"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response conforms to schema
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate RDF asset against SHACL — non-conforming, violations returned
+    # Turtle fixture explicitly typed as gax-core:Participant but missing schema:legalName
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Then save schema id from last response
+    Given asset from fixture "invalid/rdf/participant-missing-legalname.ttl" is not uploaded
+    When add asset from fixture "invalid/rdf/participant-missing-legalname.ttl" with content-type "text/turtle"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response does not conform to schema
+      And response has at least 1 violation
+      And response report contains raw SHACL report
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate JSON asset against JSON Schema — conforming
+    Given schema from fixture "schemas/person.schema.json" is uploaded as "application/schema+json"
+    Then save schema id from last response
+    Given asset from fixture "valid/non-rdf/person-valid.json" is not uploaded
+    When add asset from fixture "valid/non-rdf/person-valid.json" with content-type "application/json"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response conforms to schema
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate JSON asset against JSON Schema — non-conforming, violations returned
+    Given schema from fixture "schemas/person.schema.json" is uploaded as "application/schema+json"
+    Then save schema id from last response
+    Given asset from fixture "invalid/non-rdf/person-invalid.json" is not uploaded
+    When add asset from fixture "invalid/non-rdf/person-invalid.json" with content-type "application/json"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response does not conform to schema
+      And response has at least 1 violation
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate XML asset against XML Schema — conforming
+    Given schema from fixture "schemas/config.xsd" is uploaded as "application/xml"
+    Then save schema id from last response
+    Given asset from fixture "valid/non-rdf/config-valid.xml" is not uploaded
+    When add asset from fixture "valid/non-rdf/config-valid.xml" with content-type "application/xml"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response conforms to schema
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate XML asset against XML Schema — non-conforming, violations returned
+    Given schema from fixture "schemas/config.xsd" is uploaded as "application/xml"
+    Then save schema id from last response
+    Given asset from fixture "invalid/non-rdf/config-invalid.xml" is not uploaded
+    When add asset from fixture "invalid/non-rdf/config-invalid.xml" with content-type "application/xml"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response does not conform to schema
+      And response has at least 1 violation
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validation result is retrievable by ID after validation
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+      And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    When validate saved asset against all schemas
+    Then get http 200:Success code
+      And response has a validation result id
+    When get validation result by saved id
+    Then get http 200:Success code
+      And uploaded schemas are cleaned up
+
+  Scenario: Validation results for asset are listed after validation
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+      And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    When validate saved asset against all schemas
+    Then get http 200:Success code
+    When get validation results for saved asset
+    Then get http 200:Success code
+      And response validation results list is not empty
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate asset with unknown schema ID returns 404
+    Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    When validate saved asset against schema "urn:nonexistent-schema-validate-test"
+    Then get http 404:Not Found code
+
+  Scenario: Validate JSON asset with SHACL schema returns 400 — type mismatch
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Then save schema id from last response
+    Given asset from fixture "valid/non-rdf/contract.json" is not uploaded
+    When add asset from fixture "valid/non-rdf/contract.json" with content-type "application/json"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 400:Bad Request code
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate RDF asset with no schema specified returns 404
+    Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    When validate saved asset with no schema
+    Then get http 404:Not Found code
+
+  Scenario: Validate asset without auth token returns 401
+    Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    Given no auth token
+    When validate saved asset against all schemas
+    Then get http 401:Unauthorized code
+
+  Scenario: Validate two RDF assets together against SHACL shape — result returned
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+      And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response as "asset_id_1"
+    Given credential from fixture "loire/valid/participant.loire.jsonld" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.jsonld"
+    Then save asset id from last response as "asset_id_2"
+    When validate saved assets against all schemas
+    Then get http 200:Success code
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Multi-asset SHACL: two assets combined into single data graph
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+      And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response as "asset_id_1"
+    Given credential from fixture "loire/valid/digital-service-offering.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/digital-service-offering.loire.signed.jwt"
+    Then save asset id from last response as "asset_id_2"
+    When validate saved assets against all schemas
+    Then get http 200:Success code
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Multi-asset validate with empty assetIds returns 400
+    When validate empty asset list against all schemas
+    Then get http 400:Bad Request code
+
+  Scenario: Multi-asset validate with 21 assetIds returns 400
+    # Exceeds the OpenAPI max=20 limit (decision D7)
+    When validate 21 dummy assets against all schemas
+    Then get http 400:Bad Request code
+
+  Scenario: Multi-asset validate with non-RDF asset returns 422
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+      And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response as "asset_id_1"
+    Given asset from fixture "valid/non-rdf/contract.json" is not uploaded
+    When add asset from fixture "valid/non-rdf/contract.json" with content-type "application/json"
+    Then save asset id from last response as "asset_id_2"
+    When validate saved assets against all schemas
+    Then get http 422:Unprocessable Entity code
+      And uploaded schemas are cleaned up
+
+  Scenario: Multi-asset validate without auth returns 401
+    Given no auth token
+    When validate empty asset list against all schemas
+    Then get http 401:Unauthorized code

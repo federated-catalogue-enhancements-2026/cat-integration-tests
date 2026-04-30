@@ -136,6 +136,12 @@ def delete_asset(context: ContextType, asset_hash: str) -> None:
     context.requests_response = context.fc_server.delete_asset(asset_hash)
 
 
+@when('delete saved asset')
+def delete_saved_asset(context: ContextType) -> None:
+    assert hasattr(context, "last_asset_id"), "No saved asset id — call 'save asset id from last response' first"
+    context.requests_response = context.fc_server.delete_asset(context.last_asset_id)
+
+
 @when('revoke asset "{asset_hash}"')
 def revoke_asset(context: ContextType, asset_hash: str) -> None:
     context.requests_response = context.fc_server.revoke_asset(asset_hash)

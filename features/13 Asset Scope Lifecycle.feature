@@ -45,8 +45,8 @@ Feature: Asset Scope Lifecycle Management
     Then get http 200:Success code
     When get human-readable for saved asset
     Then get http 200:Success code
-    Then credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
-     And asset from fixture "valid/non-rdf/sample.pdf" is not uploaded
+    When delete saved asset
+    Then get http 200:Success code
 
   Scenario: Deleting an asset with no linked human-readable representation succeeds
     Given credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded

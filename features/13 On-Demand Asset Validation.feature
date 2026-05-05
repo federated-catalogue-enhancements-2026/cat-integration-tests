@@ -109,6 +109,33 @@ Feature: On-Demand Asset Validation
       And response has a validation result id
       And uploaded schemas are cleaned up
 
+  Scenario: Validate RDF/XML asset against SHACL shape — conforming
+    # Verifies RDF/XML serialisation is routed to SHACL, not XML Schema
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Then save schema id from last response
+    Given asset from fixture "valid/rdf/simple.rdf" is not uploaded
+    When add asset from fixture "valid/rdf/simple.rdf" with content-type "application/rdf+xml"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response conforms to schema
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate RDF/XML asset against SHACL — non-conforming, violations returned
+    # Participant missing schema:legalName — same constraint as Turtle fixture but RDF/XML serialisation
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Then save schema id from last response
+    Given asset from fixture "invalid/rdf/participant-missing-legalname.rdf" is not uploaded
+    When add asset from fixture "invalid/rdf/participant-missing-legalname.rdf" with content-type "application/rdf+xml"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response does not conform to schema
+      And response has at least 1 violation
+      And response has a validation result id
+      And uploaded schemas are cleaned up
+
   Scenario: Validation result is retrievable by ID after validation
     Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
       And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
@@ -150,12 +177,33 @@ Feature: On-Demand Asset Validation
     Then get http 400:Bad Request code
       And uploaded schemas are cleaned up
 
+  Scenario: Validate asset with unrecognised content-type returns 422
+    # application/pdf has no applicable validation strategy — no engine handles this content-type
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Then save schema id from last response
+    Given asset from fixture "valid/non-rdf/sample.pdf" is not uploaded
+    When add asset from fixture "valid/non-rdf/sample.pdf" with content-type "application/pdf"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 422:Unprocessable Entity code
+      And uploaded schemas are cleaned up
+
   Scenario: Validate RDF asset with no schema specified returns 404
     Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
     When add credential from fixture "loire/valid/participant.loire.signed.jwt"
     Then save asset id from last response
     When validate saved asset with no schema
     Then get http 404:Not Found code
+
+  Scenario: Validate JSON asset with validateAgainstAllSchemas and no JSON schema in store returns 404
+    # Only a SHACL schema is present — not applicable to JSON assets; no matching schema found
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Given asset from fixture "valid/non-rdf/person-valid.json" is not uploaded
+    When add asset from fixture "valid/non-rdf/person-valid.json" with content-type "application/json"
+    Then save asset id from last response
+    When validate saved asset against all schemas
+    Then get http 404:Not Found code
+      And uploaded schemas are cleaned up
 
   Scenario: Validate asset without auth token returns 401
     Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
@@ -214,5 +262,5 @@ Feature: On-Demand Asset Validation
 
   Scenario: Multi-asset validate without auth returns 401
     Given no auth token
-    When validate empty asset list against all schemas
+    When validate 1 dummy asset against all schemas
     Then get http 401:Unauthorized code

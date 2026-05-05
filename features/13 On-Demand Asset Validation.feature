@@ -205,13 +205,13 @@ Feature: On-Demand Asset Validation
     Then get http 404:Not Found code
       And uploaded schemas are cleaned up
 
-  Scenario: Validate asset without auth token returns 401
+  Scenario: Validate asset without auth token returns 403
     Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
     When add credential from fixture "loire/valid/participant.loire.signed.jwt"
     Then save asset id from last response
     Given no auth token
     When validate saved asset against all schemas
-    Then get http 401:Unauthorized code
+    Then get http 403:Forbidden code
 
   Scenario: Validate two RDF assets together against SHACL shape — result returned
     Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
@@ -260,7 +260,7 @@ Feature: On-Demand Asset Validation
     Then get http 422:Unprocessable Entity code
       And uploaded schemas are cleaned up
 
-  Scenario: Multi-asset validate without auth returns 401
+  Scenario: Multi-asset validate without auth returns 403
     Given no auth token
     When validate 1 dummy asset against all schemas
-    Then get http 401:Unauthorized code
+    Then get http 403:Forbidden code

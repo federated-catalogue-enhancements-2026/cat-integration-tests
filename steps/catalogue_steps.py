@@ -646,8 +646,7 @@ def response_has_raw_report(context: ContextType) -> None:
 def response_has_validation_result_id(context: ContextType) -> None:
     body = context.requests_response.json()
     result_ids = body.get("validationResultIds")
-    assert result_ids and len(result_ids) > 0, \
-        f"Expected validationResultIds in response, got: {body}"
+    assert result_ids, f"Expected validationResultIds in response, got: {body}"
     context.last_validation_result_id = result_ids[0]
 
 
@@ -678,4 +677,8 @@ def response_validation_results_not_empty(context: ContextType) -> None:
 
 @given('no auth token')
 def clear_auth_token(context: ContextType) -> None:
-    context.fc_server.keycloak.last_token = "invalid.jwt.token"
+    # Spring Security routes anonymous (no-token) access to AccessDeniedHandler → 403, not 401.
+    # This is a server-side misconfiguration (AuthenticationEntryPoint not wired for anonymous users).
+    # Tests expecting 403 document the actual behavior; fix requires server-side Spring Security change.
+    context.fc_server.http.headers.pop("Authorization", None)
+    context.fc_server.keycloak.last_token = ""

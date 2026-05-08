@@ -32,7 +32,9 @@ Feature: On-Demand Asset Validation
       And response has a validation result id
       And uploaded schemas are cleaned up
 
+  @cfg.default
   Scenario: Validate credential JSON-LD against SHACL shape — conforming
+    # JSON-LD without LD-proof — only accepted when VC signature verification is off (default config).
     Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
     Then save schema id from last response
     Given credential from fixture "loire/valid/participant.loire.jsonld" is not uploaded
@@ -213,7 +215,9 @@ Feature: On-Demand Asset Validation
     When validate saved asset against all schemas
     Then get http 403:Forbidden code
 
+  @cfg.default
   Scenario: Validate two RDF assets together against SHACL shape — result returned
+    # Mixes signed JWT and unsigned JSON-LD — JSON-LD upload only succeeds when VC signature verification is off.
     Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
       And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
     When add credential from fixture "loire/valid/participant.loire.signed.jwt"
@@ -226,7 +230,10 @@ Feature: On-Demand Asset Validation
       And response has a validation result id
       And uploaded schemas are cleaned up
 
+  @cfg.default
   Scenario: Multi-asset SHACL: two assets combined into single data graph
+    # digital-service-offering JWT is missing required gx:* properties; trust-framework SHACL on upload
+    # rejects it under strict config — only runs in default config (VERIFY_SCHEMA off).
     Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
       And credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
     When add credential from fixture "loire/valid/participant.loire.signed.jwt"
@@ -264,3 +271,75 @@ Feature: On-Demand Asset Validation
     Given no auth token
     When validate 1 dummy asset against all schemas
     Then get http 403:Forbidden code
+
+  Scenario: Validate JSON asset when JSON Schema module is disabled returns 422
+    # requireModuleEnabled() throws VerificationException → 422 (server config, not a client error)
+    Given schema from fixture "schemas/person.schema.json" is uploaded as "application/schema+json"
+    Then save schema id from last response
+    Given asset from fixture "valid/non-rdf/person-valid.json" is not uploaded
+    When add asset from fixture "valid/non-rdf/person-valid.json" with content-type "application/json"
+    Then save asset id from last response
+    Given JSON Schema module is disabled
+    When validate saved asset against schema by saved id
+    Then get http 422:Unprocessable Entity code
+      And JSON Schema module is re-enabled
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate XML asset when XML Schema module is disabled returns 422
+    Given schema from fixture "schemas/config.xsd" is uploaded as "application/xml"
+    Then save schema id from last response
+    Given asset from fixture "valid/non-rdf/config-valid.xml" is not uploaded
+    When add asset from fixture "valid/non-rdf/config-valid.xml" with content-type "application/xml"
+    Then save asset id from last response
+    Given XML Schema module is disabled
+    When validate saved asset against schema by saved id
+    Then get http 422:Unprocessable Entity code
+      And XML Schema module is re-enabled
+      And uploaded schemas are cleaned up
+
+  Scenario: Deleting an asset cascades delete of its validation results
+    # AssetDeletedEvent → ValidationResultCleanupListener removes validation_result rows.
+    Given schema from fixture "schemas/participant-requires-legalname.shacl.ttl" is uploaded as "text/turtle"
+    Then save schema id from last response
+    Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 200:Success code
+      And response has a validation result id
+    When delete saved asset
+    Then get http 200:Success code
+    When get validation result by saved id
+    Then get http 404:Not Found code
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate with token lacking ASSET_READ role returns 403
+    # fc-restricted-test has only SCHEMA_READ — POST /assets/validate requires ASSET_READ or ADMIN_ALL.
+    Given credential from fixture "loire/valid/participant.loire.signed.jwt" is not uploaded
+    When add credential from fixture "loire/valid/participant.loire.signed.jwt"
+    Then save asset id from last response
+    Given Keycloak token for user "fc-restricted-test" with password "CHANGE_ME_dev_only1"
+    When validate saved asset against all schemas
+    Then get http 403:Forbidden code
+
+  Scenario: Validate JSON asset against JSON Schema with file:// $ref returns 400
+    # SSRF protection: JsonSchemaValidator rejects external $ref URIs (file://) before schema loading.
+    Given schema from fixture "schemas/person-ssrf-file-ref.schema.json" is uploaded as "application/schema+json"
+    Then save schema id from last response
+    Given asset from fixture "valid/non-rdf/person-valid.json" is not uploaded
+    When add asset from fixture "valid/non-rdf/person-valid.json" with content-type "application/json"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 400:Bad Request code
+      And uploaded schemas are cleaned up
+
+  Scenario: Validate JSON asset against JSON Schema with http:// $ref returns 400
+    # SSRF protection: http:// $ref is blocked (only https:// is permitted).
+    Given schema from fixture "schemas/person-ssrf-http-ref.schema.json" is uploaded as "application/schema+json"
+    Then save schema id from last response
+    Given asset from fixture "valid/non-rdf/person-valid.json" is not uploaded
+    When add asset from fixture "valid/non-rdf/person-valid.json" with content-type "application/json"
+    Then save asset id from last response
+    When validate saved asset against schema by saved id
+    Then get http 400:Bad Request code
+      And uploaded schemas are cleaned up

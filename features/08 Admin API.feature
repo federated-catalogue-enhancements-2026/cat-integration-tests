@@ -31,19 +31,19 @@ Feature: Admin API — Runtime Configuration
 
   @baseline
   Scenario: SHACL module disabled — on-demand validation rejected with module_disabled
-    # On-demand validation gate at AssetValidationServiceImpl:118 fires before any
-    # asset lookup, so the gate is observable with placeholder asset ids and is
-    # independent of the verifySchema server config.
+    # The on-demand validation gate fires before any asset lookup, so the rejection
+    # is observable with placeholder asset ids and is independent of the
+    # verifySchema server config.
     Given SHACL schema module is disabled
     When validate 2 dummy assets against all schemas
     Then get http 400:Bad Request code
       And response body contains "module_disabled:SHACL"
       And SHACL schema module is re-enabled
 
-  @baseline
+  @baseline @cfg.default
   Scenario: SHACL module disabled — credential verification with schema check rejected
-    # CredentialVerificationStrategy SHACL gate at line 138; verifySchema=true is
-    # passed explicitly via query param so this scenario is independent of the
+    # The SHACL gate in CredentialVerificationStrategy fires when verifySchema=true
+    # is passed explicitly via query param, so this scenario is independent of the
     # server's verifySchema default config.
     Given SHACL schema module is disabled
     When verify credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" with schema check skipping signatures
@@ -54,7 +54,7 @@ Feature: Admin API — Runtime Configuration
   @baseline @cfg.default
   Scenario: OWL module disabled — custom-subclass credential fails role resolution with 400
     # resolveRole skips the rdfs:subClassOf+ walk when OWL is off. With verifySemantics
-    # off (default config), the request reaches the post-#48 null-role check in
+    # off (default config), the request reaches the unconditional null-role check in
     # VerificationServiceImpl, which rejects with 400 "not resolvable". In strict
     # config the same custom-subclass credential is rejected one layer earlier with
     # 422 "Semantic Error" (hasClasses() = false because the role resolves to UNKNOWN).
@@ -157,3 +157,23 @@ Feature: Admin API — Runtime Configuration
       And response body contains "JSON_SCHEMA"
       And response body contains "XML_SCHEMA"
       And response body contains "OWL"
+
+  @baseline @cfg.default
+  Scenario: All applicable validation modules disabled — on-demand validation rejected with 400
+    # planAllApplicable falls through with no eligible strategy when SHACL, JSON
+    # Schema, and XML Schema are all disabled. The reject is 400 ClientException
+    # (aligned from the previous 422 VerificationException; see ADR 16) and the
+    # message lists the modules an admin can enable to recover.
+    Given SHACL schema module is disabled
+      And JSON Schema module is disabled
+      And XML Schema module is disabled
+      And credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld" is not uploaded
+    When add credential from fixture "valid/default-only/gaiax-participant-correct-type.vp.jsonld"
+    Then get http 201:Created code
+      And save asset id from last response
+    When validate saved asset against all schemas
+    Then get http 400:Bad Request code
+      And response body contains "No validation module is enabled or applicable"
+      And SHACL schema module is re-enabled
+      And JSON Schema module is re-enabled
+      And XML Schema module is re-enabled

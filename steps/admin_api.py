@@ -194,3 +194,5 @@ def response_items_contributions_contain(context: ContextType, role_name: str) -
     matching = [it for it in items if role_name in (it.get("contributions") or {})]
     assert matching, \
         f"No item has contribution for role '{role_name}'. Items: {items}"
+
+

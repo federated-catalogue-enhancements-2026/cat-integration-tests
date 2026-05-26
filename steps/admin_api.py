@@ -9,6 +9,7 @@ from behave import given, then, when
 from eu.xfsc.bdd.cat.components.fc_server import Server
 
 MOCK_TRUST_FRAMEWORK_ID = "mock"
+GAIAX_TRUST_FRAMEWORK_ID = "gaia-x"
 SHACL_MODULE_TYPE = "SHACL"
 JSON_SCHEMA_MODULE_TYPE = "JSON_SCHEMA"
 XML_SCHEMA_MODULE_TYPE = "XML_SCHEMA"
@@ -234,6 +235,7 @@ def disable_trust_framework_role(context: ContextType, role_name: str, bundle_id
         context.disabled_roles.append(entry)
 
 
+@given('role {role_name} of bundle {bundle_id} is re-enabled')
 @then('role {role_name} of bundle {bundle_id} is re-enabled')
 def reenable_trust_framework_role(context: ContextType, role_name: str, bundle_id: str) -> None:
     resp = context.fc_server.set_trust_framework_role_enabled(bundle_id, role_name, enabled=True)

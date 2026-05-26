@@ -6,10 +6,13 @@ WireMock-tagged scenarios (@uses.compliance-mock) require:
   - The FC server's mock-2026 service_url configured to the same WireMock host
 """
 import os
+from datetime import datetime
 from pathlib import Path
 
 import requests
 from behave import given, then, when
+
+GAIA_X_PROFILE_ID = "gaia-x-2511"
 
 from eu.xfsc.bdd.cat.components.fc_server import Server
 
@@ -20,7 +23,7 @@ COMPLIANCE_ENDPOINT_PATH = "/api/credential-offers/standard-compliance"
 
 # Minimal unsecured JWT (alg:none, empty payload) used as mock attestation body.
 # nimbusds JWTParser accepts PlainJWT; getJWTClaimsSet() returns {} with no exp → validUntil=null.
-ATTESTATION_JWT = "eyJhbGciOiJub25lIn0.e30."
+ATTESTATION_JWT = (FIXTURES_DIR / "mock-attestation.jwt").read_text().strip()
 
 
 class ContextType:
@@ -102,13 +105,20 @@ def run_compliance_check_with_literal(
 # Compliance check — response assertions
 # ---------------------------------------------------------------------------
 
-@then("compliance result conforms is {expected:w}")
-def compliance_result_conforms(context: ContextType, expected: str) -> None:
+@then("compliance result conforms is true")
+def compliance_result_conforms_true(context: ContextType) -> None:
     body = context.requests_response.json()
-    expected_bool = expected.lower() == "true"
     actual = body.get("conforms")
-    assert actual == expected_bool, \
-        f"Expected conforms={expected_bool}, got {actual} in {body}"
+    assert actual is True, \
+        f"Expected conforms=True, got {actual} in {body}"
+
+
+@then("compliance result conforms is false")
+def compliance_result_conforms_false(context: ContextType) -> None:
+    body = context.requests_response.json()
+    actual = body.get("conforms")
+    assert actual is False, \
+        f"Expected conforms=False, got {actual} in {body}"
 
 
 @then('compliance result failure category is "{expected}"')
@@ -137,22 +147,42 @@ def save_attestation_credential(context: ContextType) -> None:
 
 @then("compliance check SPARQL result has credentialValidUntil set")
 def compliance_sparql_result_has_credential_valid_until(context: ContextType) -> None:
-    """Assert that the SPARQL result for the compliance check node contains a credentialValidUntil value."""
+    """Assert SPARQL result row with frameworkProfileId='gaia-x-2511' has a credentialValidUntil
+    value that parses as an xsd:dateTime (ISO 8601)."""
     body = context.requests_response.json()
     items = body.get("items", [])
     assert len(items) > 0, \
         f"SPARQL query returned no results — expected a fcmeta:ComplianceCheck node: {body}"
-    # Confirm the validUntil binding is present and non-empty for at least one row
+
+    def _binding_value(row: dict, *needles: str) -> str | None:
+        for key, val in row.items():
+            if any(n in key.lower() for n in needles):
+                if isinstance(val, dict):
+                    val = val.get("value")
+                if val:
+                    return str(val)
+        return None
+
     for row in items:
-        if isinstance(row, dict):
-            # SPARQL result bindings may be nested or flat depending on the graph backend
-            for key in row:
-                if "validuntil" in key.lower():
-                    if row[key]:
-                        return
+        if not isinstance(row, dict):
+            continue
+        profile_id = _binding_value(row, "profileid")
+        if profile_id != GAIA_X_PROFILE_ID:
+            continue
+        valid_until = _binding_value(row, "validuntil")
+        assert valid_until, (
+            f"Row for profileId='{GAIA_X_PROFILE_ID}' has no credentialValidUntil: {row}"
+        )
+        try:
+            datetime.fromisoformat(valid_until.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise AssertionError(
+                f"credentialValidUntil '{valid_until}' is not a valid xsd:dateTime: {exc}"
+            ) from exc
+        return
+
     raise AssertionError(
-        f"SPARQL result returned rows but no non-empty validUntil / credentialValidUntil "
-        f"binding found: {items}"
+        f"No SPARQL result row found with frameworkProfileId='{GAIA_X_PROFILE_ID}': {items}"
     )
 
 
@@ -183,16 +213,26 @@ def stored_compliance_checks_not_empty(context: ContextType) -> None:
     assert len(body) > 0, "Expected at least one stored compliance check result, got empty list"
 
 
+@then("stored compliance checks list size is at most {n:d}")
+def stored_compliance_checks_list_size_at_most(context: ContextType, n: int) -> None:
+    body = context.requests_response.json()
+    assert isinstance(body, list), f"Expected list, got {type(body).__name__}: {body}"
+    assert len(body) <= n, \
+        f"Expected at most {n} stored compliance checks, got {len(body)} in {body}"
+
+
 # ---------------------------------------------------------------------------
 # WireMock stub helpers (@uses.compliance-mock scenarios only)
 # ---------------------------------------------------------------------------
 
 def _reset_wiremock() -> None:
-    requests.post(f"{WIREMOCK_HOST}/__admin/reset", timeout=5)
+    resp = requests.post(f"{WIREMOCK_HOST}/__admin/reset", timeout=5)
+    resp.raise_for_status()
 
 
 def _add_wiremock_stub(mapping: dict) -> None:
-    requests.post(f"{WIREMOCK_HOST}/__admin/mappings", json=mapping, timeout=5)
+    resp = requests.post(f"{WIREMOCK_HOST}/__admin/mappings", json=mapping, timeout=5)
+    resp.raise_for_status()
 
 
 @given("compliance service is stubbed to issue attestation")
@@ -242,3 +282,21 @@ def stub_compliance_service_error(context) -> None:
             "body": "Service unavailable"
         }
     })
+
+
+@then("compliance service received {n:d} calls")
+def compliance_service_received_n_calls(context: ContextType, n: int) -> None:
+    """Query WireMock's __admin/requests/count to verify POST call count to compliance endpoint."""
+    resp = requests.post(
+        f"{WIREMOCK_HOST}/__admin/requests/count",
+        json={
+            "method": "POST",
+            "urlPathPattern": COMPLIANCE_ENDPOINT_PATH
+        },
+        timeout=5
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    actual = data.get("count", 0)
+    assert actual == n, \
+        f"Expected {n} calls to compliance service, got {actual}"

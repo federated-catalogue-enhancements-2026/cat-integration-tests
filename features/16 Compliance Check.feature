@@ -52,8 +52,10 @@ Feature: Compliance Check
     Then get http 400:Bad Request code
 
   Scenario: Disabled trust framework family — returns 409
+    # Asset id must match the VP JWT id so the orchestrator's id-mismatch short-circuit
+    # is not hit first — only then is the disabled-family gate (409) reached.
     Given mock trust framework is disabled
-    When run compliance check for asset "did:web:compliance-test.example.org" with profile "mock-2026" and credential from fixture "loire/valid/participant-vp.loire.signed.jwt"
+    When run compliance check for asset "urn:uuid:98765432-4321-4321-4321-cba987654321" with profile "mock-2026" and credential from fixture "loire/valid/participant-vp.loire.signed.jwt"
     Then get http 409:Conflict code
     And mock trust framework is re-enabled
 

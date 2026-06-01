@@ -81,7 +81,10 @@ case ${CAT_ENV} in
     export CAT_KEYCLOAK_SCOPE="openid"
     export CAT_TEST_USER="qa-test-user"
     export CAT_TEST_PASSWORD="qa-test-password"
-    export CAT_WIREMOCK_HOST="https://wiremock.qa.example.org"  # TODO: set real QA WireMock host
+    # Compliance mock for @uses.compliance-mock scenarios. If the mock runs in-cluster
+    # (Helm complianceMock.enabled), port-forward it and point here at the local port:
+    #   kubectl port-forward -n federated-catalogue svc/fc-compliance-mock 8089:8080
+    export CAT_WIREMOCK_HOST="http://localhost:8089"
     ;;
 
   *)

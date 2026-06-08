@@ -4,13 +4,19 @@ Feature: Gaia-X Live DCH Compliance Check
   I want to run compliance checks against the live Gaia-X Digital Clearing House (Loire v2)
   So that Gaia-X participants can obtain verifiable compliance attestations from the real DCH
 
+  # These scenarios run against the Gaia-X Lab /development DCH generation.
+  # /development accepts Let's Encrypt chain, so the
+  # showcase (which signs with a Let's Encrypt did:web key) targets /development.
+  #
   # These scenarios require:
-  #   - A QA stage with internet access to https://compliance.gaia-x.eu/v2
-  #   - The gaia-x trust framework family enabled:
-  #       PUT /admin/trust-frameworks/gaia-x/enabled?enabled=true
-  #       or env FEDERATED_CATALOGUE_ENABLED_TRUST_FRAMEWORKS=gaia-x
-  #   - A signing key with a publicly resolvable x5u certificate chain trusted
-  #     by the Gaia-X Trust Anchor registry (self-signed local CA not sufficient)
+  #   - A QA stage with internet access to the Gaia-X Lab /development endpoints
+  #     (compliance.lab.gaia-x.eu/development, registry.lab.gaia-x.eu/development,
+  #      registrationnumber.notary.lab.gaia-x.eu/development).
+  #   - The gaia-x trust framework family enabled (Background) and its bundle repointed at the
+  #     Lab /development endpoints (Background — overrides serviceUrl + trustAnchorUrl, auto-cleared).
+  #   - A signing key with a publicly resolvable x5u certificate chain accepted by the Lab
+  #     /development registry (self-signed local CA not sufficient). The showcase reuses the
+  #     deployed did:web #0 Let's Encrypt key.
   #
   # Run with:
   #   behave --tags=uses.live-gxdch features/compliance/gaia-x-live-dch.feature
@@ -22,21 +28,19 @@ Feature: Gaia-X Live DCH Compliance Check
     And saved Keycloak token
     And Federated Catalogue Server is up
     And Gaia-X trust framework is enabled
+    And operator overrides bundle "gaia-x-2511" config: serviceUrl = "https://compliance.lab.gaia-x.eu/development"
+    And operator overrides bundle "gaia-x-2511" config: trustAnchorUrl = "https://registry.lab.gaia-x.eu/development/api/trustAnchor/chain/file"
 
-  @smoke @wip
+  @smoke
   Scenario: Loire-conformant asset passes Live DCH compliance check
-    # Precondition: gaia-x family enabled (Background).
-    # Upload a Loire-conformant VP JWT signed with a key whose x5u chain is trusted
-    # by the real Gaia-X Trust Anchor registry.
+    # Precondition: gaia-x family enabled + bundle repointed at the Lab /development DCH (Background).
     #
     # FIXTURE: fixtures/loire/valid/participant-vp.loire.dch-trusted.signed.jwt
-    # — NOT committed; must be provisioned for QA. Provisioning checklist:
-    #   1. A real participant DID with x5u resolvable to a Gaia-X Trust Anchor chain.
-    #   2. A JSON-LD payload (copy participant-vp.loire.jsonld; set `iss`/`issuer`
-    #      to the real DID).
-    #   3. Sign with the matching private key (algo per DCH spec; not Ed25519/
-    #      did:web:did-server as in the negative-case fixture below).
-    # Once the file is in place, drop @wip.
+    # — NOT committed (gitignored); provision per-QA with:
+    #     python3 scripts/provision-gxdch-showcase.py --verify
+    #   It mints a notary LRN (VAT BE0762747721, VIES-validated), self-signs a LegalPerson + T&C
+    #   VC under the gaia-x/development# context, assembles a VP, and signs it with the deployed
+    #   did:web #0 Let's Encrypt key (PS256). --verify asserts the Lab DCH issues an attestation.
     Given credential from fixture "loire/valid/participant-vp.loire.dch-trusted.signed.jwt" is not uploaded
     When add credential from fixture "loire/valid/participant-vp.loire.dch-trusted.signed.jwt" with content-type "application/vp+jwt"
     Then get http 201:Created code

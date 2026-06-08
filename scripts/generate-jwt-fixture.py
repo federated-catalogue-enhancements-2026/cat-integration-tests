@@ -3,8 +3,9 @@
 Sign JSON-LD payloads as JWT fixtures for BDD tests.
 
 Reads a .jsonld file (the JWT claims set), wraps it with JWT headers, signs with
-Ed25519, and writes the compact JWT. The .jsonld file is the source of truth for
-the credential content — human-readable and easy to diff.
+the key's algorithm (EdDSA for Ed25519, PS256 for RSA), and writes the compact JWT.
+The .jsonld file is the source of truth for the credential content — human-readable
+and easy to diff.
 
 For production credential generation, use gx-credential-helper + vc-jwt.io.
 This script is for BDD fixture signing only.
@@ -33,6 +34,11 @@ Usage:
   # Use existing key
   python3 scripts/generate-jwt-fixture.py --payload fixtures/loire/valid/participant.loire.jsonld \
       --key keys/jwt-signing.pem
+
+  # Sign with an RSA/PS256 key — e.g. the did:web #0 key whose cert backs the x5u chain
+  # (required for GXDCH/lab compliance, which validates the signing key against the x5u cert)
+  python3 scripts/generate-jwt-fixture.py --payload my-participant.jsonld \
+      --key le-privkey.pem --kid "did:web:did.<ip>.sslip.io#0"
 
   # Override auto-detected headers
   python3 scripts/generate-jwt-fixture.py --payload my-vc.jsonld --typ vc+jwt --cty vc
@@ -68,6 +74,7 @@ from pathlib import Path
 try:
     import jwt as pyjwt
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
     from cryptography.hazmat.primitives.serialization import (
         Encoding, NoEncryption, PrivateFormat, PublicFormat,
     )
@@ -80,6 +87,10 @@ except ImportError:
 ISSUER_DID = "did:web:did-server"
 KEY_ID = f"{ISSUER_DID}#jwt-key-1"
 
+# Supported signing keys: Ed25519 (EdDSA) for local/BDD fixtures, RSA (PS256) for
+# credentials whose signing key must match the x5u certificate chain (GXDCH/lab compliance).
+SigningKey = Ed25519PrivateKey | RSAPrivateKey
+
 
 # --- Key management ---
 
@@ -87,16 +98,27 @@ def b64url_no_pad(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
 
 
+def b64url_uint(n: int) -> str:
+    """Encode a non-negative integer as base64url (no padding), per JWK RSA n/e encoding."""
+    return b64url_no_pad(n.to_bytes((n.bit_length() + 7) // 8, "big"))
+
+
+def alg_for_key(key: SigningKey) -> str:
+    """JWS algorithm matching the key type: EdDSA for Ed25519, PS256 for RSA
+    (the algorithm Gaia-X did:web documents advertise for RSA keys)."""
+    return "PS256" if isinstance(key, RSAPrivateKey) else "EdDSA"
+
+
 def generate_key() -> Ed25519PrivateKey:
     return Ed25519PrivateKey.generate()
 
 
-def load_key_from_pem(pem_path: str) -> Ed25519PrivateKey:
+def load_key_from_pem(pem_path: str) -> SigningKey:
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
     pem_bytes = Path(pem_path).read_bytes()
     key = load_pem_private_key(pem_bytes, password=None)
-    if not isinstance(key, Ed25519PrivateKey):
-        print(f"Error: {pem_path} is not an Ed25519 private key", file=sys.stderr)
+    if not isinstance(key, (Ed25519PrivateKey, RSAPrivateKey)):
+        print(f"Error: {pem_path} is not an Ed25519 or RSA private key", file=sys.stderr)
         sys.exit(1)
     return key
 
@@ -107,7 +129,17 @@ def save_key_pem(key: Ed25519PrivateKey, path: Path) -> None:
     print(f"Private key saved: {path}")
 
 
-def build_public_key_jwk(key: Ed25519PrivateKey, key_id: str) -> dict:
+def build_public_key_jwk(key: SigningKey, key_id: str) -> dict:
+    if isinstance(key, RSAPrivateKey):
+        nums = key.public_key().public_numbers()
+        return {
+            "kty": "RSA",
+            "n": b64url_uint(nums.n),
+            "e": b64url_uint(nums.e),
+            "kid": key_id,
+            "alg": "PS256",  # LocalSignatureVerifier reads the algorithm from the JWK
+            "use": "sig",
+        }
     pub = key.public_key()
     raw = pub.public_bytes(Encoding.Raw, PublicFormat.Raw)
     return {
@@ -145,12 +177,12 @@ def detect_headers(payload: dict) -> tuple[str, str | None]:
     return "JWT", None
 
 
-def sign_jwt(payload: dict, key: Ed25519PrivateKey, kid: str,
+def sign_jwt(payload: dict, key: SigningKey, kid: str,
              typ: str = "JWT", cty: str | None = None) -> str:
     headers = {"kid": kid, "typ": typ}
     if cty is not None:
         headers["cty"] = cty
-    return pyjwt.encode(payload, key, algorithm="EdDSA", headers=headers)
+    return pyjwt.encode(payload, key, algorithm=alg_for_key(key), headers=headers)
 
 
 # --- Payload resolution ---
@@ -268,7 +300,7 @@ def main() -> None:
                         help="(VP) JSON-LD file for inner VC — signed first, then injected via {{VC_JWT}} placeholder")
     parser.add_argument("--typ", help="JWT typ header (auto-detected from payload if omitted)")
     parser.add_argument("--cty", help="JWT cty header (auto-detected from payload if omitted)")
-    parser.add_argument("--key", help="Ed25519 private key PEM (generates new key if omitted)")
+    parser.add_argument("--key", help="Ed25519 or RSA private key PEM (generates new Ed25519 key if omitted)")
     parser.add_argument("--save-key", help="Save generated key to this PEM path")
     parser.add_argument("--kid", default=KEY_ID, help=f"Key ID (default: {KEY_ID})")
     parser.add_argument("--wrap-as", choices=["evc", "evp"], dest="wrap_as",
